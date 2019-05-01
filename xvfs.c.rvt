@@ -1,0 +1,15 @@
+#include <xvfs-common.h>
+
+<?
+	package require xvfs
+	xvfs::main $argv
+?>
+static const char **xvfs_<?= $::xvfs::fsName ?>_getChildren(const char *path, Tcl_WideInt limit) {
+}
+
+static const unsigned char *xvfs_<?= $::xvfs::fsName ?>_getData(const char *path, Tcl_WideInt start, Tcl_WideInt length) {
+}
+
+int Xvfs_<?= $::xvfs::fsName ?>_Init() {
+	// Init->Register("<?= $::xvfs::fsName ?>", XVFS_PROTOCOL_VERSION, xvfs_<?= $::xvfs::fsName ?>_getChildren, xvfs_<?= $::xvfs::fsName ?>_getData)
+}

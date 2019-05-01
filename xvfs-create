@@ -1,0 +1,9 @@
+#! /usr/bin/env tclsh
+
+set sourceDirectory [file dirname [file normalize [info script]]]
+lappend auto_path [file join $sourceDirectory lib]
+set template [file join xvfs.c.rvt]
+
+package require minirivet
+
+minirivet::parse $template
