@@ -7,8 +7,11 @@ example.c: $(shell find example -type f) $(shell find lib -type f) xvfs.c.rvt xv
 example.o: example.c xvfs-core.h Makefile
 	cc -fPIC -Wall -I. -o example.o -c example.c
 
-example.so: example.o Makefile
-	cc -fPIC -shared -o example.so example.o
+xvfs-core.o: xvfs-core.c xvfs-core.h Makefile
+	cc -fPIC -Wall -I. -o xvfs-core.o -c xvfs-core.c
+
+example.so: example.o xvfs-core.o Makefile
+	cc -fPIC -shared -o example.so example.o xvfs-core.o
 
 test: example.so
 	echo 'load ./example.so Xvfs_example; puts OK' | tclsh | grep '^OK$$'

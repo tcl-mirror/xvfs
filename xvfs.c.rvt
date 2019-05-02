@@ -29,10 +29,10 @@ static const unsigned char *xvfs_<?= $::xvfs::fsName ?>_getData(const char *path
 	return(NULL);
 }
 
-int Xvfs_<?= $::xvfs::fsName ?>_Init() {
+int Xvfs_<?= $::xvfs::fsName ?>_Init(Tcl_Interp *interp) {
 	int register_ret;
 	
-	register_ret = Xvfs_Register("<?= $::xvfs::fsName ?>", XVFS_PROTOCOL_VERSION, xvfs_<?= $::xvfs::fsName ?>_getChildren, xvfs_<?= $::xvfs::fsName ?>_getData);
+	register_ret = Xvfs_Register(interp, "<?= $::xvfs::fsName ?>", XVFS_PROTOCOL_VERSION, xvfs_<?= $::xvfs::fsName ?>_getChildren, xvfs_<?= $::xvfs::fsName ?>_getData);
 	if (register_ret != TCL_OK) {
 		return(register_ret);
 	}
