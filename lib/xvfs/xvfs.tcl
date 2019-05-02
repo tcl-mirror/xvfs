@@ -101,26 +101,6 @@ proc ::xvfs::processDirectory {fsName directory {subDirectory ""}} {
 	}
 
 	if {$isTopLevel} {
-		puts {
-/*
- * XXX:TODO: Move this header information
- */
-#include <unistd.h>
-#include <tcl.h>
-
-typedef enum {
-	XVFS_FILE_TYPE_REG,
-	XVFS_FILE_TYPE_DIR
-} xvfs_file_type_t;
-
-typedef Tcl_WideInt xvfs_size_t;
-
-struct xvfs_file_data {
-	const char          *name;
-	xvfs_file_type_t    type;
-	xvfs_size_t         size;
-	const unsigned char *data;
-};}
 		puts "static struct xvfs_file_data xvfs_${fsName}_data\[\] = \{"
 	}
 

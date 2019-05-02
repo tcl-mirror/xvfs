@@ -1,9 +1,26 @@
 #include <xvfs-common.h>
+#include <unistd.h>
+#include <tcl.h>
+
+typedef enum {
+	XVFS_FILE_TYPE_REG,
+	XVFS_FILE_TYPE_DIR
+} xvfs_file_type_t;
+
+typedef Tcl_WideInt xvfs_size_t;
+
+struct xvfs_file_data {
+	const char          *name;
+	xvfs_file_type_t    type;
+	xvfs_size_t         size;
+	const unsigned char *data;
+};
 
 <?
 	package require xvfs
 	xvfs::main $argv
 ?>
+
 static const char **xvfs_<?= $::xvfs::fsName ?>_getChildren(const char *path, Tcl_WideInt limit) {
 }
 
