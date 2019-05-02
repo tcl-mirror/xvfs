@@ -17,6 +17,10 @@ struct Xvfs_FSInfo {
 	xvfs_proc_getInfo_t      getInfoProc;
 };
 
+#if XVFS_MODE == standalone
+#define Xvfs_Register(interp, fsInfo) xvfs_standalone_register(interp, fsInfo)
+#endif
+
 int Xvfs_Register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo);
 
 #endif

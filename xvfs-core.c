@@ -8,7 +8,6 @@ struct xvfs_tclfs_instance_info {
 	struct Xvfs_FSInfo *fsInfo;
 	Tcl_Obj            *mountpoint;
 };
-static struct xvfs_tclfs_instance_info xvfs_tclfs_standalone_info;
 
 /*
  * Internal Core Utilities
@@ -78,9 +77,11 @@ fprintf(stderr, "Called open(%s)!\n", pathStr);
 	return(NULL);
 }
 
+#if XVFS_MODE == standalone
 /*
  * Tcl_Filesystem handlers for the standalone implementation
  */
+static struct xvfs_tclfs_instance_info xvfs_tclfs_standalone_info;
 static int xvfs_tclfs_standalone_pathInFilesystem(Tcl_Obj *path, ClientData *dataPtr) {
 	return(xvfs_tclfs_pathInFilesystem(path, dataPtr, &xvfs_tclfs_standalone_info));
 }
@@ -110,7 +111,7 @@ static Tcl_Channel xvfs_tclfs_standalone_openFileChannel(Tcl_Interp *interp, Tcl
  *                   fallback to #1
  *
  */
-static int xvfs_standalone_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
+int xvfs_standalone_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
 	Tcl_Filesystem *xvfs_tclfs_Info;
 	int tcl_ret;
 	static int registered = 0;
@@ -189,7 +190,8 @@ static int xvfs_standalone_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsIn
 	
 	return(TCL_OK);
 }
-
+#else
 int Xvfs_Register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
-	return(xvfs_standalone_register(interp, fsInfo));
+	return(TCL_ERROR);
 }
+#endif
