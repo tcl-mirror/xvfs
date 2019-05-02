@@ -27,6 +27,27 @@ proc ::xvfs::sanitizeCString {string} {
 	return $output
 }
 
+proc ::xvfs::sanitizeCStringList {list {prefix ""} {width 80}} {
+	set lines [list]
+	set row [list]
+	foreach item $list {
+		lappend row "\"[sanitizeCString $item]\""
+		
+		set rowString [join $row {, }]
+		set rowString "${prefix}${rowString}"
+		if {[string length $rowString] > $width} {
+			set row [list]
+			lappend lines $rowString
+			unset rowString
+		}
+	}
+	if {[info exists rowString]} {
+		lappend lines $rowString
+	}
+	
+	return [join $lines "\n"]
+}
+
 proc ::xvfs::binaryToCHex {binary {prefix ""} {width 10}} {
 	binary scan $binary H* binary
 	set output [list]
@@ -71,9 +92,17 @@ proc ::xvfs::processFile {fsName inputFile outputFile fileInfoDict} {
 			close $fd
 		}
 		"directory" {
-			set data "NULL"
 			set type "XVFS_FILE_TYPE_DIR"
-			set size "0"
+			set children $fileInfo(children)
+			set size [llength $children]
+			
+			if {$size == 0} {
+				set children "NULL"
+			} else {
+				set children [string trimleft [sanitizeCStringList $children "\t\t\t"]]
+				# This initializes it using a C99 compound literal, C99 is required
+				set children "(const char *\[\]) \{$children\}"
+			}
 		}
 		default {
 			return -code error "Unable to process $inputFile, unknown type: $fileInfo(type)"
@@ -84,7 +113,14 @@ proc ::xvfs::processFile {fsName inputFile outputFile fileInfoDict} {
 	puts "\t\t.name = \"[sanitizeCString $outputFile]\","
 	puts "\t\t.type = $type,"
 	puts "\t\t.size = $size,"
-	puts "\t\t.data = (unsigned char *) $data"
+	switch -exact -- $fileInfo(type) {
+		"file" {
+			puts "\t\t.data.fileContents = (const unsigned char *) $data"
+		}
+		"directory" {
+			puts "\t\t.data.dirChildren  = $children"
+		}
+	}
 	puts "\t\},"
 }
 
@@ -105,6 +141,7 @@ proc ::xvfs::processDirectory {fsName directory {subDirectory ""}} {
 	}
 
 	# XXX:TODO: Include hidden files ?
+	set children [list]
 	foreach file [glob -nocomplain -tails -directory $workingDirectory *] {
 		if {$file in {. ..}} {
 			continue
@@ -120,9 +157,12 @@ proc ::xvfs::processDirectory {fsName directory {subDirectory ""}} {
 		if {![info exists fileInfo]} {
 			puts stderr "warning: Unable to access $inputFile, skipping"
 		}
+		
+		lappend children [file tail $file]
 
 		if {$fileInfo(type) eq "directory"} {
 			lappend subDirectories $outputFile
+			continue
 		}
 
 		processFile $fsName $inputFile $outputFile [array get fileInfo]
@@ -132,18 +172,18 @@ proc ::xvfs::processDirectory {fsName directory {subDirectory ""}} {
 	foreach subDirectory $subDirectories {
 		lappend outputFiles {*}[processDirectory $fsName $directory $subDirectory]
 	}
+	
+	set inputFile $directory
+	set outputFile $outputDirectory
+	unset -nocomplain fileInfo
+	file stat $inputFile fileInfo
+	set fileInfo(children) $children
+
+	processFile $fsName $inputFile $outputFile [array get fileInfo]
+	lappend outputFiles $outputFile
 
 	if {$isTopLevel} {
 		puts "\};"
-
-if {0} {
-		puts ""
-		puts "static <type> xvfs_${fsName}_nameToIndex\[\] = \{"
-		foreach outputFile $outputFiles {
-			puts "\t\"$outputFile\","
-		}
-		puts "\};"
-}
 	}
 
 	return $outputFiles
@@ -190,7 +230,7 @@ proc ::xvfs::main {argv} {
 	}
 
 	## 3. Start processing directory and producing initial output
-	processDirectory $fsName $rootDirectory 
+	set ::xvfs::outputFiles [processDirectory $fsName $rootDirectory]
 
 	set ::xvfs::fsName $fsName
 	set ::xvfs::rootDirectory $rootDirectory

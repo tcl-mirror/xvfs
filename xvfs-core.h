@@ -5,9 +5,9 @@
 
 #define XVFS_PROTOCOL_VERSION 1
 
-typedef const char **(*xvfs_proc_getChildren_t)(const char *path, Tcl_WideInt limit);
-typedef const unsigned char *(*xvfs_proc_getData_t)(const char *path, Tcl_WideInt start, Tcl_WideInt length);
+typedef const char **(*xvfs_proc_getChildren_t)(const char *path, Tcl_WideInt *count);
+typedef const unsigned char *(*xvfs_proc_getData_t)(const char *path, Tcl_WideInt start, Tcl_WideInt *length);
 
-int Xvfs_Register(Tcl_Interp *interp, const char *fsName, int protocolVersion, xvfs_proc_getChildren_t getChildrenProc, xvfs_proc_getData_t getData);
+int Xvfs_Register(Tcl_Interp *interp, const char *fsName, int protocolVersion, xvfs_proc_getChildren_t getChildrenProc, xvfs_proc_getData_t getDataProc);
 
 #endif

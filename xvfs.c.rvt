@@ -1,6 +1,10 @@
 #include <xvfs-core.h>
 #include <unistd.h>
+#include <string.h>
 #include <tcl.h>
+
+#define XVFS_NAME_LOOKUP_ERROR (-1)
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
 typedef enum {
 	XVFS_FILE_TYPE_REG,
@@ -13,24 +17,125 @@ struct xvfs_file_data {
 	const char          *name;
 	xvfs_file_type_t    type;
 	xvfs_size_t         size;
-	const unsigned char *data;
+	union {
+		const unsigned char *fileContents;
+		const char          **dirChildren;
+	} data;
 };
 
 <?
 	package require xvfs
 	xvfs::main $argv
 ?>
+static long xvfs_<?= $::xvfs::fsName ?>_nameToIndex(const char *path) {
+	if (path == NULL) {
+		return(XVFS_NAME_LOOKUP_ERROR);
+	}
 
-static const char **xvfs_<?= $::xvfs::fsName ?>_getChildren(const char *path, Tcl_WideInt limit) {
-	return(NULL);
+<?	for {set index 0} {$index < [llength $::xvfs::outputFiles]} {incr index} {
+		set outputFile [lindex $::xvfs::outputFiles $index]
+?>
+	if (strcmp(path, "<?= [::xvfs::sanitizeCString $outputFile] ?>") == 0) {
+		return(<?= $index ?>);
+	}
+<?	} ?>
+	return(XVFS_NAME_LOOKUP_ERROR);
 }
 
-static const unsigned char *xvfs_<?= $::xvfs::fsName ?>_getData(const char *path, Tcl_WideInt start, Tcl_WideInt length) {
-	return(NULL);
+static const char **xvfs_<?= $::xvfs::fsName ?>_getChildren(const char *path, Tcl_WideInt *count) {
+	struct xvfs_file_data *fileInfo;
+	long inode;
+
+	/*
+	 * Validate input parameters
+	 */
+	if (count == NULL) {
+		return(NULL);
+	}
+	
+	/*
+	 * Get the inode from the lookup function
+	 */
+	inode = xvfs_<?= $::xvfs::fsName ?>_nameToIndex(path);
+	if (inode == XVFS_NAME_LOOKUP_ERROR) {
+		return(NULL);
+	}
+	
+	fileInfo = &xvfs_<?= $::xvfs::fsName ?>_data[inode];
+
+	/*
+	 * Ensure this is a directory
+	 */
+	if (fileInfo->type != XVFS_FILE_TYPE_DIR) {
+		return(NULL);
+	}
+	
+	*count = fileInfo->size;
+	return(fileInfo->data.dirChildren);
+}
+
+static const unsigned char *xvfs_<?= $::xvfs::fsName ?>_getData(const char *path, Tcl_WideInt start, Tcl_WideInt *length) {
+	struct xvfs_file_data *fileInfo;
+	Tcl_WideInt resultLength;
+	long inode;
+
+	/*
+	 * Validate input parameters
+	 */
+	if (start < 0) {
+		return(NULL);
+	}
+	
+	if (length == NULL) {
+		return(NULL);
+	}
+	
+	if (*length < 0) {
+		return(NULL);
+	}
+	
+	/*
+	 * Get the inode from the lookup function
+	 */
+	inode = xvfs_<?= $::xvfs::fsName ?>_nameToIndex(path);
+	if (inode == XVFS_NAME_LOOKUP_ERROR) {
+		return(NULL);
+	}
+	
+	fileInfo = &xvfs_<?= $::xvfs::fsName ?>_data[inode];
+
+	/*
+	 * Ensure this is a file that can be read
+	 */
+	if (fileInfo->type != XVFS_FILE_TYPE_REG) {
+		return(NULL);
+	}
+
+	/*
+	 * Validate the length
+	 */
+	if (start > fileInfo->size) {
+		*length = -1;
+		return(NULL);
+	}
+
+	if (*length == 0) {
+		resultLength = fileInfo->size - start;
+	} else {
+		resultLength = MIN(fileInfo->size - start, *length);
+	}
+	*length = resultLength;
+	
+	/*
+	 * Return the data
+	 */
+	return(fileInfo->data.fileContents + start);
 }
 
 int Xvfs_<?= $::xvfs::fsName ?>_Init(Tcl_Interp *interp) {
 	int register_ret;
+	
+	/* XXX:TODO: Stubs */
 	
 	register_ret = Xvfs_Register(interp, "<?= $::xvfs::fsName ?>", XVFS_PROTOCOL_VERSION, xvfs_<?= $::xvfs::fsName ?>_getChildren, xvfs_<?= $::xvfs::fsName ?>_getData);
 	if (register_ret != TCL_OK) {
