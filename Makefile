@@ -1,4 +1,4 @@
-CPPFLAGS := -I. -DUSE_TCL_STUBS=1 -DXVFS_MODE=standalone
+CPPFLAGS := -I. -DUSE_TCL_STUBS=1 -DXVFS_MODE_STANDALONE
 CFLAGS   := -fPIC -g3 -ggdb3 -Wall
 LDFLAGS  :=
 LIBS     := -ltclstub8.6

@@ -2,6 +2,7 @@
 #include <string.h>
 #include <tcl.h>
 
+#if defined(XVFS_MODE_SERVER) || defined(XVFS_MODE_STANDALONE) || defined(XVFS_MODE_FLEXIBLE)
 #define XVFS_ROOT_MOUNTPOINT "//xvfs:/"
 
 struct xvfs_tclfs_instance_info {
@@ -76,8 +77,9 @@ fprintf(stderr, "Called open(%s)!\n", pathStr);
 	
 	return(NULL);
 }
+#endif /* XVFS_MODE_SERVER || XVFS_MODE_STANDALONE || XVFS_MODE_FLEIXBLE */
 
-#if XVFS_MODE == standalone
+#if defined(XVFS_MODE_STANDALONE)
 /*
  * Tcl_Filesystem handlers for the standalone implementation
  */
@@ -143,7 +145,7 @@ int xvfs_standalone_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
 		return(TCL_ERROR);
 	}
 	
-	xvfs_tclfs_Info->typeName                   = strdup("xvfs");
+	xvfs_tclfs_Info->typeName                   = "xvfs";
 	xvfs_tclfs_Info->structureLength            = sizeof(*xvfs_tclfs_Info);
 	xvfs_tclfs_Info->version                    = TCL_FILESYSTEM_VERSION_1;
 	xvfs_tclfs_Info->pathInFilesystemProc       = xvfs_tclfs_standalone_pathInFilesystem;
@@ -190,7 +192,9 @@ int xvfs_standalone_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
 	
 	return(TCL_OK);
 }
-#else
+#endif
+
+#if defined(XVFS_MODE_SERVER)
 int Xvfs_Register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
 	return(TCL_ERROR);
 }

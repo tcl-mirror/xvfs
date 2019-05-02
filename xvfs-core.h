@@ -1,5 +1,5 @@
-#ifndef XVFS_COMMON_H_1B4B28D60EBAA11D5FF85642FA7CA22C29E8E817
-#define XVFS_COMMON_H_1B4B28D60EBAA11D5FF85642FA7CA22C29E8E817 1
+#ifndef XVFS_CORE_H_1B4B28D60EBAA11D5FF85642FA7CA22C29E8E817
+#define XVFS_CORE_H_1B4B28D60EBAA11D5FF85642FA7CA22C29E8E817 1
 
 #include <tcl.h>
 
@@ -17,10 +17,46 @@ struct Xvfs_FSInfo {
 	xvfs_proc_getInfo_t      getInfoProc;
 };
 
-#if XVFS_MODE == standalone
-#define Xvfs_Register(interp, fsInfo) xvfs_standalone_register(interp, fsInfo)
+#define XVFS_REGISTER_INTERFACE(name) int name(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo);
+
+#if defined(XVFS_MODE_STANDALONE)
+/*
+ * In standalone mode, we just redefine calls to
+ * Xvfs_Register() to go to the xvfs_standalone_register()
+ * function
+ */
+#  define Xvfs_Register xvfs_standalone_register
+XVFS_REGISTER_INTERFACE(Xvfs_Register)
+
+#elif defined(XVFS_MODE_FLEXIBLE)
+/*
+ * In flexible mode we declare an external symbol named
+ * Xvfs_Register(), as well as an internal symbol called
+ * xvfs_flexible_register(), which we redefine future
+ * calls to Xvfs_Register() to invoke
+ */
+extern XVFS_REGISTER_INTERFACE(Xvfs_Register)
+#  define Xvfs_Register xvfs_flexible_register
+XVFS_REGISTER_INTERFACE(Xvfs_Register)
+
+#elif defined(XVFS_MODE_CLIENT)
+/*
+ * In client mode we declare an external symbol named
+ * Xvfs_Register() that must be provided by the environment
+ * we are loaded into
+ */
+extern XVFS_REGISTER_INTERFACE(Xvfs_Register)
+
+#elif defined(XVFS_MODE_SERVER)
+/*
+ * In server mode we are going to implementing Xvfs_Register()
+ * for flexible/client modes, just forward declare it
+ */
+XVFS_REGISTER_INTERFACE(Xvfs_Register)
+
+#else
+#  error Unsupported XVFS_MODE
 #endif
 
-int Xvfs_Register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo);
 
 #endif
