@@ -1,13 +1,13 @@
 all: example.so
 
-example.c: $(shell find example -type f) $(shell find lib -type f) xvfs.c.rvt xvfs-create
+example.c: $(shell find example -type f) $(shell find lib -type f) xvfs.c.rvt xvfs-create Makefile
 	./xvfs-create --directory example --name example > example.c.new
 	mv example.c.new example.c
 
-example.o: example.c xvfs-core.h
-	cc -I. -o example.o -c example.c
+example.o: example.c xvfs-core.h Makefile
+	cc -Wall -I. -o example.o -c example.c
 
-example.so: example.o
+example.so: example.o Makefile
 	cc -shared -o example.so example.o
 
 test:

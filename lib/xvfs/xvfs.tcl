@@ -84,7 +84,7 @@ proc ::xvfs::processFile {fsName inputFile outputFile fileInfoDict} {
 	puts "\t\t.name = \"[sanitizeCString $outputFile]\","
 	puts "\t\t.type = $type,"
 	puts "\t\t.size = $size,"
-	puts "\t\t.data = $data"
+	puts "\t\t.data = (unsigned char *) $data"
 	puts "\t\},"
 }
 
