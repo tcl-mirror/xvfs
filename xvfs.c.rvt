@@ -133,11 +133,24 @@ static const unsigned char *xvfs_<?= $::xvfs::fsName ?>_getData(const char *path
 }
 
 int Xvfs_<?= $::xvfs::fsName ?>_Init(Tcl_Interp *interp) {
+	struct Xvfs_FSInfo fsInfo = {
+		.protocolVersion = XVFS_PROTOCOL_VERSION,
+		.fsName          = "<?= $::xvfs::fsName ?>",
+		.getChildrenProc = xvfs_<?= $::xvfs::fsName ?>_getChildren,
+		.getDataProc     = xvfs_<?= $::xvfs::fsName ?>_getData
+	};
 	int register_ret;
+
+#ifdef USE_TCL_STUBS
+	const char *tclInitStubs_ret;
+	/* Initialize Stubs */
+	tclInitStubs_ret = Tcl_InitStubs(interp, TCL_PATCH_LEVEL, 0);
+	if (!tclInitStubs_ret) {
+		return(TCL_ERROR);
+	}
+#endif
 	
-	/* XXX:TODO: Stubs */
-	
-	register_ret = Xvfs_Register(interp, "<?= $::xvfs::fsName ?>", XVFS_PROTOCOL_VERSION, xvfs_<?= $::xvfs::fsName ?>_getChildren, xvfs_<?= $::xvfs::fsName ?>_getData);
+	register_ret = Xvfs_Register(interp, &fsInfo);
 	if (register_ret != TCL_OK) {
 		return(register_ret);
 	}

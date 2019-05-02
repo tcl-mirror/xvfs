@@ -1,3 +1,8 @@
+CPPFLAGS := -I. -DUSE_TCL_STUBS=1
+CFLAGS   := -fPIC -g3 -ggdb3 -Wall
+LDFLAGS  :=
+LIBS     := -ltclstub8.6
+
 all: example.so
 
 example.c: $(shell find example -type f) $(shell find lib -type f) xvfs.c.rvt xvfs-create Makefile
@@ -5,16 +10,16 @@ example.c: $(shell find example -type f) $(shell find lib -type f) xvfs.c.rvt xv
 	mv example.c.new example.c
 
 example.o: example.c xvfs-core.h Makefile
-	cc -fPIC -Wall -I. -o example.o -c example.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o example.o -c example.c
 
 xvfs-core.o: xvfs-core.c xvfs-core.h Makefile
-	cc -fPIC -Wall -I. -o xvfs-core.o -c xvfs-core.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o xvfs-core.o -c xvfs-core.c
 
 example.so: example.o xvfs-core.o Makefile
-	cc -fPIC -shared -o example.so example.o xvfs-core.o
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o example.so example.o xvfs-core.o $(LIBS)
 
 test: example.so
-	echo 'load ./example.so Xvfs_example; puts OK' | tclsh | grep '^OK$$'
+	echo 'if {[catch { load ./example.so Xvfs_example; source //xvfs:/main.tcl }]} { puts stderr $$::errorInfo; exit 1 }; exit 0' | tclsh
 
 clean:
 	rm -f example.so example.o example.c

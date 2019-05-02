@@ -8,6 +8,13 @@
 typedef const char **(*xvfs_proc_getChildren_t)(const char *path, Tcl_WideInt *count);
 typedef const unsigned char *(*xvfs_proc_getData_t)(const char *path, Tcl_WideInt start, Tcl_WideInt *length);
 
-int Xvfs_Register(Tcl_Interp *interp, const char *fsName, int protocolVersion, xvfs_proc_getChildren_t getChildrenProc, xvfs_proc_getData_t getDataProc);
+struct Xvfs_FSInfo {
+	int                      protocolVersion;
+	const char               *fsName;
+	xvfs_proc_getChildren_t  getChildrenProc;
+	xvfs_proc_getData_t      getDataProc;
+};
+
+int Xvfs_Register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo);
 
 #endif
