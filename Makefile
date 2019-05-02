@@ -19,10 +19,11 @@ example.so: example.o xvfs-core.o Makefile
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o example.so example.o xvfs-core.o $(LIBS)
 
 test: example.so
-	echo 'if {[catch { load ./example.so Xvfs_example; source //xvfs:/main.tcl }]} { puts stderr $$::errorInfo; exit 1 }; exit 0' | tclsh
+	echo 'if {[catch { load ./example.so Xvfs_example; source //xvfs:/example/main.tcl }]} { puts stderr $$::errorInfo; exit 1 }; exit 0' | tclsh
 
 clean:
 	rm -f example.so example.o example.c
+	rm -f xvfs-core.o
 
 distclean: clean
 

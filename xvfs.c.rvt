@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <tcl.h>
+#include <sys/stat.h>
 
 #define XVFS_NAME_LOOKUP_ERROR (-1)
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
@@ -132,13 +133,62 @@ static const unsigned char *xvfs_<?= $::xvfs::fsName ?>_getData(const char *path
 	return(fileInfo->data.fileContents + start);
 }
 
+static int xvfs_<?= $::xvfs::fsName ?>_getInfo(const char *path, Tcl_StatBuf *statBuf) {
+	struct xvfs_file_data *fileInfo;
+	long inode;
+
+	/*
+	 * Validate input parameters
+	 */
+	if (!statBuf) {
+		return(-1);
+	}
+	
+	/*
+	 * Get the inode from the lookup function
+	 */
+	inode = xvfs_<?= $::xvfs::fsName ?>_nameToIndex(path);
+	if (inode == XVFS_NAME_LOOKUP_ERROR) {
+		return(-1);
+	}
+	
+	fileInfo = &xvfs_<?= $::xvfs::fsName ?>_data[inode];
+	
+	statBuf->st_dev   = 0;
+	statBuf->st_rdev  = 0;
+	statBuf->st_ino   = inode;
+	statBuf->st_uid   = -1;
+	statBuf->st_gid   = -1;
+	statBuf->st_atime = 0;
+	statBuf->st_ctime = 0;
+	statBuf->st_mtime = 0;
+	statBuf->st_blksize = 1024;
+	
+	if (fileInfo->type == XVFS_FILE_TYPE_REG) {
+		statBuf->st_mode   = 0400;
+		statBuf->st_nlink  = 1;
+		statBuf->st_size   = fileInfo->size;
+		statBuf->st_blocks = (fileInfo->size + statBuf->st_blksize - 1) / statBuf->st_blksize;
+	} else if (fileInfo->type == XVFS_FILE_TYPE_DIR) {
+		statBuf->st_mode   = 0500;
+		statBuf->st_nlink  = fileInfo->size;
+		statBuf->st_size   = fileInfo->size;
+		statBuf->st_blocks = 1;
+	}
+	
+	return(0);
+}
+
+
+static struct Xvfs_FSInfo xvfs_<?= $::xvfs::fsName ?>_fsInfo = {
+	.protocolVersion = XVFS_PROTOCOL_VERSION,
+	.name            = "<?= $::xvfs::fsName ?>",
+	.getChildrenProc = xvfs_<?= $::xvfs::fsName ?>_getChildren,
+	.getDataProc     = xvfs_<?= $::xvfs::fsName ?>_getData,
+	.getInfoProc     = xvfs_<?= $::xvfs::fsName ?>_getInfo
+};
+
 int Xvfs_<?= $::xvfs::fsName ?>_Init(Tcl_Interp *interp) {
-	struct Xvfs_FSInfo fsInfo = {
-		.protocolVersion = XVFS_PROTOCOL_VERSION,
-		.fsName          = "<?= $::xvfs::fsName ?>",
-		.getChildrenProc = xvfs_<?= $::xvfs::fsName ?>_getChildren,
-		.getDataProc     = xvfs_<?= $::xvfs::fsName ?>_getData
-	};
 	int register_ret;
 
 #ifdef USE_TCL_STUBS
@@ -150,7 +200,7 @@ int Xvfs_<?= $::xvfs::fsName ?>_Init(Tcl_Interp *interp) {
 	}
 #endif
 	
-	register_ret = Xvfs_Register(interp, &fsInfo);
+	register_ret = Xvfs_Register(interp, &xvfs_<?= $::xvfs::fsName ?>_fsInfo);
 	if (register_ret != TCL_OK) {
 		return(register_ret);
 	}
