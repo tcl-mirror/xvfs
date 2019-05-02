@@ -1,4 +1,4 @@
-#include <xvfs-common.h>
+#include <xvfs-core.h>
 #include <unistd.h>
 #include <tcl.h>
 
