@@ -5,13 +5,13 @@ example.c: $(shell find example -type f) $(shell find lib -type f) xvfs.c.rvt xv
 	mv example.c.new example.c
 
 example.o: example.c xvfs-core.h Makefile
-	cc -Wall -I. -o example.o -c example.c
+	cc -fPIC -Wall -I. -o example.o -c example.c
 
 example.so: example.o Makefile
-	cc -shared -o example.so example.o
+	cc -fPIC -shared -o example.so example.o
 
-test:
-	@echo not implemented
+test: example.so
+	echo 'load ./example.so Xvfs_example; puts OK' | tclsh | grep '^OK$$'
 
 clean:
 	rm -f example.so example.o example.c

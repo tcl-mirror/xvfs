@@ -22,11 +22,20 @@ struct xvfs_file_data {
 ?>
 
 static const char **xvfs_<?= $::xvfs::fsName ?>_getChildren(const char *path, Tcl_WideInt limit) {
+	return(NULL);
 }
 
 static const unsigned char *xvfs_<?= $::xvfs::fsName ?>_getData(const char *path, Tcl_WideInt start, Tcl_WideInt length) {
+	return(NULL);
 }
 
 int Xvfs_<?= $::xvfs::fsName ?>_Init() {
-	// Init->Register("<?= $::xvfs::fsName ?>", XVFS_PROTOCOL_VERSION, xvfs_<?= $::xvfs::fsName ?>_getChildren, xvfs_<?= $::xvfs::fsName ?>_getData)
+	int register_ret;
+	
+	register_ret = Xvfs_Register("<?= $::xvfs::fsName ?>", XVFS_PROTOCOL_VERSION, xvfs_<?= $::xvfs::fsName ?>_getChildren, xvfs_<?= $::xvfs::fsName ?>_getData);
+	if (register_ret != TCL_OK) {
+		return(register_ret);
+	}
+	
+	return(TCL_OK);
 }
