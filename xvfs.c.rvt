@@ -5,6 +5,8 @@
 #include <sys/stat.h>
 
 #define XVFS_NAME_LOOKUP_ERROR (-1)
+#define XVFS_FILE_BLOCKSIZE 1024
+
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
 typedef enum {
@@ -29,17 +31,34 @@ struct xvfs_file_data {
 	xvfs::main $argv
 ?>
 static long xvfs_<?= $::xvfs::fsName ?>_nameToIndex(const char *path) {
+	unsigned int pathHash;
+	
 	if (path == NULL) {
 		return(XVFS_NAME_LOOKUP_ERROR);
 	}
-
-<?	for {set index 0} {$index < [llength $::xvfs::outputFiles]} {incr index} {
+	
+	pathHash = Tcl_ZlibAdler32(0, (const unsigned char *) path, strlen(path));
+	switch (pathHash) {
+<?
+	for {set index 0} {$index < [llength $::xvfs::outputFiles]} {incr index} {
 		set outputFile [lindex $::xvfs::outputFiles $index]
-?>
-	if (strcmp(path, "<?= [::xvfs::sanitizeCString $outputFile] ?>") == 0) {
-		return(<?= $index ?>);
+		set outputFileHash [zlib adler32 $outputFile 0]
+		lappend outputFileHashToIndex($outputFileHash) $index
 	}
+	
+	foreach {outputFileHash outputFileIndexes} [lsort -stride 2 -dictionary [array get outputFileHashToIndex]] {
+?>		case <?= $outputFileHash ?>:
+<?
+			foreach outputFileIndex $outputFileIndexes {
+?>			if (strcmp(path, xvfs_<?= $::xvfs::fsName ?>_data[<?= $outputFileIndex ?>].name) == 0) {
+				return(<?= $outputFileIndex ?>);
+			}
+<?
+			}
+?>			break;
 <?	} ?>
+	}
+	
 	return(XVFS_NAME_LOOKUP_ERROR);
 }
 
@@ -162,7 +181,7 @@ static int xvfs_<?= $::xvfs::fsName ?>_getInfo(const char *path, Tcl_StatBuf *st
 	statBuf->st_atime = 0;
 	statBuf->st_ctime = 0;
 	statBuf->st_mtime = 0;
-	statBuf->st_blksize = 1024;
+	statBuf->st_blksize = XVFS_FILE_BLOCKSIZE;
 	
 	if (fileInfo->type == XVFS_FILE_TYPE_REG) {
 		statBuf->st_mode   = 0400;
