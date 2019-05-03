@@ -79,7 +79,7 @@ fprintf(stderr, "Called open(%s)!\n", pathStr);
 }
 #endif /* XVFS_MODE_SERVER || XVFS_MODE_STANDALONE || XVFS_MODE_FLEIXBLE */
 
-#if defined(XVFS_MODE_STANDALONE)
+#if defined(XVFS_MODE_STANDALONE) || defined(XVFS_MODE_FLEXIBLE)
 /*
  * Tcl_Filesystem handlers for the standalone implementation
  */
@@ -191,6 +191,23 @@ int xvfs_standalone_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
 	}
 	
 	return(TCL_OK);
+}
+#endif
+
+#if defined(XVFS_MODE_FLEXIBLE)
+#include <dlfcn.h>
+int xvfs_flexible_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
+	int (*xvfs_register)(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) = NULL;
+
+	/*
+	 * XXX:TODO: Find some way to use Tcl_FindSymbol() to do this
+	 */
+	xvfs_register = dlsym(NULL, "Xvfs_Register");
+	if (!xvfs_register) {
+		xvfs_register = &xvfs_standalone_register;
+	}
+	
+	return(xvfs_register(interp, fsInfo));
 }
 #endif
 
