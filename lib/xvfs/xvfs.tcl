@@ -148,7 +148,7 @@ proc ::xvfs::processDirectory {fsName directory {subDirectory ""}} {
 		}
 
 		set inputFile [file join $workingDirectory $file]
-		set outputFile [file join $outputDirectory $file]
+		set outputFile [file join $outputDirectory [encoding convertto utf-8 $file]]
 
 		unset -nocomplain fileInfo
 		catch {

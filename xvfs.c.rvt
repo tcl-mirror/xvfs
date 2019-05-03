@@ -53,7 +53,6 @@ static long xvfs_<?= $::xvfs::fsName ?>_nameToIndex(const char *path) {
 <?
 			foreach outputFileIndex $outputFileIndexes {
 				set outputFileName [lindex $::xvfs::outputFiles $outputFileIndex]
-				set outputFileName [encoding convertto utf-8 $outputFileName]
 				set outputFileNameLen [string length $outputFileName]
 ?>			if (pathLen == <?= $outputFileNameLen ?> && memcmp(path, xvfs_<?= $::xvfs::fsName ?>_data[<?= $outputFileIndex ?>].name, pathLen) == 0) {
 				return(<?= $outputFileIndex ?>);
