@@ -32,12 +32,14 @@ struct xvfs_file_data {
 ?>
 static long xvfs_<?= $::xvfs::fsName ?>_nameToIndex(const char *path) {
 	unsigned int pathHash;
+	size_t pathLen;
 	
 	if (path == NULL) {
 		return(XVFS_NAME_LOOKUP_ERROR);
 	}
-	
-	pathHash = Tcl_ZlibAdler32(0, (const unsigned char *) path, strlen(path));
+
+	pathLen = strlen(path);
+	pathHash = Tcl_ZlibAdler32(0, (const unsigned char *) path, pathLen);
 	switch (pathHash) {
 <?
 	for {set index 0} {$index < [llength $::xvfs::outputFiles]} {incr index} {
@@ -50,7 +52,10 @@ static long xvfs_<?= $::xvfs::fsName ?>_nameToIndex(const char *path) {
 ?>		case <?= $outputFileHash ?>:
 <?
 			foreach outputFileIndex $outputFileIndexes {
-?>			if (strcmp(path, xvfs_<?= $::xvfs::fsName ?>_data[<?= $outputFileIndex ?>].name) == 0) {
+				set outputFileName [lindex $::xvfs::outputFiles $outputFileIndex]
+				set outputFileName [encoding convertto utf-8 $outputFileName]
+				set outputFileNameLen [string length $outputFileName]
+?>			if (pathLen == <?= $outputFileNameLen ?> && memcmp(path, xvfs_<?= $::xvfs::fsName ?>_data[<?= $outputFileIndex ?>].name, pathLen) == 0) {
 				return(<?= $outputFileIndex ?>);
 			}
 <?
