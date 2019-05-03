@@ -7,14 +7,14 @@
 
 typedef const char **(*xvfs_proc_getChildren_t)(const char *path, Tcl_WideInt *count);
 typedef const unsigned char *(*xvfs_proc_getData_t)(const char *path, Tcl_WideInt start, Tcl_WideInt *length);
-typedef int (*xvfs_proc_getInfo_t)(const char *path, Tcl_StatBuf *statBuf);
+typedef int (*xvfs_proc_getStat_t)(const char *path, Tcl_StatBuf *statBuf);
 
 struct Xvfs_FSInfo {
 	int                      protocolVersion;
 	const char               *name;
 	xvfs_proc_getChildren_t  getChildrenProc;
 	xvfs_proc_getData_t      getDataProc;
-	xvfs_proc_getInfo_t      getInfoProc;
+	xvfs_proc_getStat_t      getStatProc;
 };
 
 #define XVFS_REGISTER_INTERFACE(name) int name(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo);

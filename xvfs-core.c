@@ -60,7 +60,7 @@ static int xvfs_tclfs_stat(Tcl_Obj *path, Tcl_StatBuf *statBuf, struct xvfs_tclf
 
 	pathStr = xvfs_relativePath(path, instanceInfo);
 	
-	retval = instanceInfo->fsInfo->getInfoProc(pathStr, statBuf);
+	retval = instanceInfo->fsInfo->getStatProc(pathStr, statBuf);
 	
 	return(retval);
 }

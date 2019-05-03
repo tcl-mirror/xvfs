@@ -156,7 +156,7 @@ static const unsigned char *xvfs_<?= $::xvfs::fsName ?>_getData(const char *path
 	return(fileInfo->data.fileContents + start);
 }
 
-static int xvfs_<?= $::xvfs::fsName ?>_getInfo(const char *path, Tcl_StatBuf *statBuf) {
+static int xvfs_<?= $::xvfs::fsName ?>_getStat(const char *path, Tcl_StatBuf *statBuf) {
 	struct xvfs_file_data *fileInfo;
 	long inode;
 
@@ -208,7 +208,7 @@ static struct Xvfs_FSInfo xvfs_<?= $::xvfs::fsName ?>_fsInfo = {
 	.name            = "<?= $::xvfs::fsName ?>",
 	.getChildrenProc = xvfs_<?= $::xvfs::fsName ?>_getChildren,
 	.getDataProc     = xvfs_<?= $::xvfs::fsName ?>_getData,
-	.getInfoProc     = xvfs_<?= $::xvfs::fsName ?>_getInfo
+	.getStatProc     = xvfs_<?= $::xvfs::fsName ?>_getStat
 };
 
 int Xvfs_<?= $::xvfs::fsName ?>_Init(Tcl_Interp *interp) {
