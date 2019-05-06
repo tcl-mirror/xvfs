@@ -113,8 +113,8 @@ static Tcl_Channel xvfs_tclfs_standalone_openFileChannel(Tcl_Interp *interp, Tcl
  *                   fallback to #1
  *
  */
+static Tcl_Filesystem xvfs_tclfs_standalone_fs;
 int xvfs_standalone_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
-	Tcl_Filesystem *xvfs_tclfs_Info;
 	int tcl_ret;
 	static int registered = 0;
 	
@@ -137,51 +137,43 @@ int xvfs_standalone_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
 		return(TCL_ERROR);
 	}
 	
-	xvfs_tclfs_Info = (Tcl_Filesystem *) Tcl_AttemptAlloc(sizeof(*xvfs_tclfs_Info));
-	if (!xvfs_tclfs_Info) {
-		if (interp) {
-			Tcl_SetResult(interp, "Unable to allocate Tcl_Filesystem object", NULL);
-		}
-		return(TCL_ERROR);
-	}
-	
-	xvfs_tclfs_Info->typeName                   = "xvfs";
-	xvfs_tclfs_Info->structureLength            = sizeof(*xvfs_tclfs_Info);
-	xvfs_tclfs_Info->version                    = TCL_FILESYSTEM_VERSION_1;
-	xvfs_tclfs_Info->pathInFilesystemProc       = xvfs_tclfs_standalone_pathInFilesystem;
-	xvfs_tclfs_Info->dupInternalRepProc         = NULL;
-	xvfs_tclfs_Info->freeInternalRepProc        = NULL;
-	xvfs_tclfs_Info->internalToNormalizedProc   = NULL;
-	xvfs_tclfs_Info->createInternalRepProc      = NULL;
-	xvfs_tclfs_Info->normalizePathProc          = NULL;
-	xvfs_tclfs_Info->filesystemPathTypeProc     = NULL;
-	xvfs_tclfs_Info->filesystemSeparatorProc    = NULL;
-	xvfs_tclfs_Info->statProc                   = xvfs_tclfs_standalone_stat;
-	xvfs_tclfs_Info->accessProc                 = NULL;
-	xvfs_tclfs_Info->openFileChannelProc        = xvfs_tclfs_standalone_openFileChannel;
-	xvfs_tclfs_Info->matchInDirectoryProc       = NULL;
-	xvfs_tclfs_Info->utimeProc                  = NULL;
-	xvfs_tclfs_Info->linkProc                   = NULL;
-	xvfs_tclfs_Info->listVolumesProc            = xvfs_tclfs_standalone_listVolumes;
-	xvfs_tclfs_Info->fileAttrStringsProc        = NULL;
-	xvfs_tclfs_Info->fileAttrsGetProc           = NULL;
-	xvfs_tclfs_Info->fileAttrsSetProc           = NULL;
-	xvfs_tclfs_Info->createDirectoryProc        = NULL;
-	xvfs_tclfs_Info->removeDirectoryProc        = NULL;
-	xvfs_tclfs_Info->deleteFileProc             = NULL;
-	xvfs_tclfs_Info->copyFileProc               = NULL;
-	xvfs_tclfs_Info->renameFileProc             = NULL;
-	xvfs_tclfs_Info->copyDirectoryProc          = NULL;
-	xvfs_tclfs_Info->lstatProc                  = NULL;
-	xvfs_tclfs_Info->loadFileProc               = NULL;
-	xvfs_tclfs_Info->getCwdProc                 = NULL;
-	xvfs_tclfs_Info->chdirProc                  = NULL;
+	xvfs_tclfs_standalone_fs.typeName                   = "xvfs";
+	xvfs_tclfs_standalone_fs.structureLength            = sizeof(xvfs_tclfs_standalone_fs);
+	xvfs_tclfs_standalone_fs.version                    = TCL_FILESYSTEM_VERSION_1;
+	xvfs_tclfs_standalone_fs.pathInFilesystemProc       = xvfs_tclfs_standalone_pathInFilesystem;
+	xvfs_tclfs_standalone_fs.dupInternalRepProc         = NULL;
+	xvfs_tclfs_standalone_fs.freeInternalRepProc        = NULL;
+	xvfs_tclfs_standalone_fs.internalToNormalizedProc   = NULL;
+	xvfs_tclfs_standalone_fs.createInternalRepProc      = NULL;
+	xvfs_tclfs_standalone_fs.normalizePathProc          = NULL;
+	xvfs_tclfs_standalone_fs.filesystemPathTypeProc     = NULL;
+	xvfs_tclfs_standalone_fs.filesystemSeparatorProc    = NULL;
+	xvfs_tclfs_standalone_fs.statProc                   = xvfs_tclfs_standalone_stat;
+	xvfs_tclfs_standalone_fs.accessProc                 = NULL;
+	xvfs_tclfs_standalone_fs.openFileChannelProc        = xvfs_tclfs_standalone_openFileChannel;
+	xvfs_tclfs_standalone_fs.matchInDirectoryProc       = NULL;
+	xvfs_tclfs_standalone_fs.utimeProc                  = NULL;
+	xvfs_tclfs_standalone_fs.linkProc                   = NULL;
+	xvfs_tclfs_standalone_fs.listVolumesProc            = xvfs_tclfs_standalone_listVolumes;
+	xvfs_tclfs_standalone_fs.fileAttrStringsProc        = NULL;
+	xvfs_tclfs_standalone_fs.fileAttrsGetProc           = NULL;
+	xvfs_tclfs_standalone_fs.fileAttrsSetProc           = NULL;
+	xvfs_tclfs_standalone_fs.createDirectoryProc        = NULL;
+	xvfs_tclfs_standalone_fs.removeDirectoryProc        = NULL;
+	xvfs_tclfs_standalone_fs.deleteFileProc             = NULL;
+	xvfs_tclfs_standalone_fs.copyFileProc               = NULL;
+	xvfs_tclfs_standalone_fs.renameFileProc             = NULL;
+	xvfs_tclfs_standalone_fs.copyDirectoryProc          = NULL;
+	xvfs_tclfs_standalone_fs.lstatProc                  = NULL;
+	xvfs_tclfs_standalone_fs.loadFileProc               = NULL;
+	xvfs_tclfs_standalone_fs.getCwdProc                 = NULL;
+	xvfs_tclfs_standalone_fs.chdirProc                  = NULL;
 
 	xvfs_tclfs_standalone_info.fsInfo = fsInfo;
 	xvfs_tclfs_standalone_info.mountpoint = Tcl_NewObj();
 	Tcl_AppendStringsToObj(xvfs_tclfs_standalone_info.mountpoint, XVFS_ROOT_MOUNTPOINT, fsInfo->name, NULL);
 	
-	tcl_ret = Tcl_FSRegister(NULL, xvfs_tclfs_Info);
+	tcl_ret = Tcl_FSRegister(NULL, &xvfs_tclfs_standalone_fs);
 	if (tcl_ret != TCL_OK) {
 		if (interp) {
 			Tcl_SetResult(interp, "Tcl_FSRegister() failed", NULL);
