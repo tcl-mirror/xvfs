@@ -1,3 +1,4 @@
 example.c
 example.o
 example.so
+xvfs-core.o
