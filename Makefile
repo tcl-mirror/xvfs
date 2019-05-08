@@ -1,7 +1,7 @@
 CPPFLAGS := -I. -DUSE_TCL_STUBS=1 -DXVFS_MODE_FLEXIBLE
 CFLAGS   := -fPIC -g3 -ggdb3 -Wall
 LDFLAGS  :=
-LIBS     := -ltclstub8.6 -ldl
+LIBS     := -ltclstub8.6
 
 all: example.so
 

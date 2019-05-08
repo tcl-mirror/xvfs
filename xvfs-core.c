@@ -186,19 +186,51 @@ int xvfs_standalone_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
 }
 #endif
 
+#if defined(XVFS_MODE_FLEXIBLE) || defined(XVFS_MODE_SERVER)
+struct xvfs_tclfs_server_info {
+	char magic[XVFS_PROTOCOL_SERVER_MAGIC_LEN];
+	int (*registerProc)(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo);
+};
+#endif
+
 #if defined(XVFS_MODE_FLEXIBLE)
-#include <dlfcn.h>
 int xvfs_flexible_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
-	int (*xvfs_register)(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) = NULL;
+	ClientData fsHandlerDataRaw;
+	struct xvfs_tclfs_server_info *fsHandlerData;
+	const Tcl_Filesystem *fsHandler;
+	int (*xvfs_register)(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo);
+	Tcl_Obj *rootPathObj;
+
+	xvfs_register = &xvfs_standalone_register;
+
+	rootPathObj = Tcl_NewStringObj(XVFS_ROOT_MOUNTPOINT, -1);
+	if (!rootPathObj) {
+		return(xvfs_register(interp, fsInfo));
+	}
+
+	Tcl_IncrRefCount(rootPathObj);
+	fsHandler = Tcl_FSGetFileSystemForPath(rootPathObj);
+	Tcl_DecrRefCount(rootPathObj);
+
+	if (!fsHandler) {
+		return(xvfs_register(interp, fsInfo));
+	}
+
+	fsHandlerDataRaw = Tcl_FSData(fsHandler);
+	if (!fsHandlerDataRaw) {
+		return(xvfs_register(interp, fsInfo));
+	}
+
+	fsHandlerData = (struct xvfs_tclfs_server_info *) fsHandlerDataRaw;
 
 	/*
-	 * XXX:TODO: Find some way to use Tcl_FindSymbol() to do this
+	 * XXX:TODO: What is the chance that the handler for //xvfs:/ hold
+	 * client data smaller than XVFS_PROTOCOL_SERVER_MAGIC_LEN ?
 	 */
-	xvfs_register = dlsym(NULL, "Xvfs_Register");
-	if (!xvfs_register) {
-		xvfs_register = &xvfs_standalone_register;
+	if (memcmp(fsHandlerData->magic, XVFS_PROTOCOL_SERVER_MAGIC, sizeof(fsHandlerData->magic)) == 0) {
+		xvfs_register = fsHandlerData->registerProc;
 	}
-	
+
 	return(xvfs_register(interp, fsInfo));
 }
 #endif

@@ -4,6 +4,8 @@
 #include <tcl.h>
 
 #define XVFS_PROTOCOL_VERSION 1
+#define XVFS_PROTOCOL_SERVER_MAGIC "\xD4\xF3\x05\x96\x25\xCF\xAF\xFE"
+#define XVFS_PROTOCOL_SERVER_MAGIC_LEN 8
 
 typedef const char **(*xvfs_proc_getChildren_t)(const char *path, Tcl_WideInt *count);
 typedef const unsigned char *(*xvfs_proc_getData_t)(const char *path, Tcl_WideInt start, Tcl_WideInt *length);
