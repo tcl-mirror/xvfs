@@ -7,7 +7,7 @@
 #define XVFS_INTERNAL_SERVER_MAGIC_LEN 8
 
 struct xvfs_tclfs_server_info {
-	char magic[XVFS_PROTOCOL_SERVER_MAGIC_LEN];
+	char magic[XVFS_INTERNAL_SERVER_MAGIC_LEN];
 	int (*registerProc)(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo);
 };
 #endif /* XVFS_MODE_FLEXIBLE || XVFS_MODE_SERVER */
@@ -228,9 +228,9 @@ int xvfs_flexible_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
 
 	/*
 	 * XXX:TODO: What is the chance that the handler for //xvfs:/ hold
-	 * client data smaller than XVFS_PROTOCOL_SERVER_MAGIC_LEN ?
+	 * client data smaller than XVFS_INTERNAL_SERVER_MAGIC_LEN ?
 	 */
-	if (memcmp(fsHandlerData->magic, XVFS_PROTOCOL_SERVER_MAGIC, sizeof(fsHandlerData->magic)) == 0) {
+	if (memcmp(fsHandlerData->magic, XVFS_INTERNAL_SERVER_MAGIC, sizeof(fsHandlerData->magic)) == 0) {
 		xvfs_register = fsHandlerData->registerProc;
 	}
 
