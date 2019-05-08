@@ -1,8 +1,8 @@
 #include <xvfs-core.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <string.h>
 #include <tcl.h>
-#include <sys/stat.h>
 
 #define XVFS_NAME_LOOKUP_ERROR (-1)
 #define XVFS_FILE_BLOCKSIZE 1024

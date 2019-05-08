@@ -83,8 +83,11 @@ static Tcl_Channel xvfs_tclfs_openFileChannel(Tcl_Interp *interp, Tcl_Obj *path,
 	const char *pathStr;
 
 	pathStr = xvfs_relativePath(path, instanceInfo);
-fprintf(stderr, "Called open(%s)!\n", pathStr);
-	
+	/*
+	 * XXX:TODO: Do something to create the Tcl_Channel we
+	 * need to return here
+	 */
+
 	return(NULL);
 }
 #endif /* XVFS_MODE_SERVER || XVFS_MODE_STANDALONE || XVFS_MODE_FLEIXBLE */
