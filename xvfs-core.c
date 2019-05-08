@@ -2,6 +2,16 @@
 #include <string.h>
 #include <tcl.h>
 
+#if defined(XVFS_MODE_FLEXIBLE) || defined(XVFS_MODE_SERVER)
+#define XVFS_INTERNAL_SERVER_MAGIC "\xD4\xF3\x05\x96\x25\xCF\xAF\xFE"
+#define XVFS_INTERNAL_SERVER_MAGIC_LEN 8
+
+struct xvfs_tclfs_server_info {
+	char magic[XVFS_PROTOCOL_SERVER_MAGIC_LEN];
+	int (*registerProc)(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo);
+};
+#endif /* XVFS_MODE_FLEXIBLE || XVFS_MODE_SERVER */
+
 #if defined(XVFS_MODE_SERVER) || defined(XVFS_MODE_STANDALONE) || defined(XVFS_MODE_FLEXIBLE)
 #define XVFS_ROOT_MOUNTPOINT "//xvfs:/"
 
@@ -184,14 +194,7 @@ int xvfs_standalone_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
 	
 	return(TCL_OK);
 }
-#endif
-
-#if defined(XVFS_MODE_FLEXIBLE) || defined(XVFS_MODE_SERVER)
-struct xvfs_tclfs_server_info {
-	char magic[XVFS_PROTOCOL_SERVER_MAGIC_LEN];
-	int (*registerProc)(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo);
-};
-#endif
+#endif /* XVFS_MODE_STANDALONE || XVFS_MODE_FLEXIBLE */
 
 #if defined(XVFS_MODE_FLEXIBLE)
 int xvfs_flexible_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
@@ -233,10 +236,10 @@ int xvfs_flexible_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
 
 	return(xvfs_register(interp, fsInfo));
 }
-#endif
+#endif /* XVFS_MODE_FLEXIBLE */
 
 #if defined(XVFS_MODE_SERVER)
 int Xvfs_Register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
 	return(TCL_ERROR);
 }
-#endif
+#endif /* XVFS_MODE_SERVER */
