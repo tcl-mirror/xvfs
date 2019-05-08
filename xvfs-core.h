@@ -26,18 +26,18 @@ struct Xvfs_FSInfo {
  * function
  */
 #  define Xvfs_Register xvfs_standalone_register
-XVFS_REGISTER_INTERFACE(Xvfs_Register)
+static XVFS_REGISTER_INTERFACE(Xvfs_Register)
 
 #elif defined(XVFS_MODE_FLEXIBLE)
 /*
- * In flexible mode we declare an external symbol named
- * Xvfs_Register(), as well as an internal symbol called
- * xvfs_flexible_register(), which we redefine future
- * calls to Xvfs_Register() to invoke
+ * In flexible mode, we just redefine calls to
+ * Xvfs_Register() to go to the xvfs_flexible_register()
+ * function which will either dispatch to a common
+ * core XVFS or use the xvfs_standalone_register()
+ * function as a standalone would.
  */
-extern XVFS_REGISTER_INTERFACE(Xvfs_Register)
 #  define Xvfs_Register xvfs_flexible_register
-XVFS_REGISTER_INTERFACE(Xvfs_Register)
+static XVFS_REGISTER_INTERFACE(Xvfs_Register)
 
 #elif defined(XVFS_MODE_CLIENT)
 /*
@@ -58,5 +58,13 @@ XVFS_REGISTER_INTERFACE(Xvfs_Register)
 #  error Unsupported XVFS_MODE
 #endif
 
+/*
+ * In flexible or standalone mode, directly include what
+ * would otherwise be a separate translation unit, to
+ * avoid symbols leaking
+ */
+#if defined(XVFS_MODE_FLEXIBLE) || defined(XVFS_MODE_STANDALONE)
+#include <xvfs-core.c>
+#endif
 
 #endif

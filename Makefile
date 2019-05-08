@@ -9,21 +9,17 @@ example.c: $(shell find example -type f) $(shell find lib -type f) xvfs.c.rvt xv
 	./xvfs-create --directory example --name example > example.c.new
 	mv example.c.new example.c
 
-example.o: example.c xvfs-core.h Makefile
+example.o: example.c xvfs-core.h xvfs-core.c Makefile
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o example.o -c example.c
 
-xvfs-core.o: xvfs-core.c xvfs-core.h Makefile
-	$(CC) $(CPPFLAGS) $(CFLAGS) -o xvfs-core.o -c xvfs-core.c
-
-example.so: example.o xvfs-core.o Makefile
-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o example.so example.o xvfs-core.o $(LIBS)
+example.so: example.o Makefile
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o example.so example.o $(LIBS)
 
 test: example.so
 	echo 'if {[catch { load ./example.so Xvfs_example; source //xvfs:/example/main.tcl }]} { puts stderr $$::errorInfo; exit 1 }; exit 0' | tclsh
 
 clean:
 	rm -f example.so example.o example.c
-	rm -f xvfs-core.o
 
 distclean: clean
 

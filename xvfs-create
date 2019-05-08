@@ -22,7 +22,10 @@ switch -- $mode {
 		set xvfs_core_h [file join $sourceDirectory xvfs-core.h]
 		set xvfs_core_c [file join $sourceDirectory xvfs-core.c]
 
-		set cleanup [list "#include <xvfs-core.h>" ""]
+		set cleanup {
+			"#include <xvfs-core.h>" ""
+			"#include <xvfs-core.c>" ""
+		}
 
 		set core_header_data ""
 		append core_header_data [string map $cleanup [read [open $xvfs_core_h]]] "\n"

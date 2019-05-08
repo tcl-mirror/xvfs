@@ -127,7 +127,7 @@ static Tcl_Channel xvfs_tclfs_standalone_openFileChannel(Tcl_Interp *interp, Tcl
  *
  */
 static Tcl_Filesystem xvfs_tclfs_standalone_fs;
-int xvfs_standalone_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
+static int xvfs_standalone_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
 	int tcl_ret;
 	static int registered = 0;
 	
@@ -200,7 +200,7 @@ int xvfs_standalone_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
 #endif /* XVFS_MODE_STANDALONE || XVFS_MODE_FLEXIBLE */
 
 #if defined(XVFS_MODE_FLEXIBLE)
-int xvfs_flexible_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
+static int xvfs_flexible_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
 	ClientData fsHandlerDataRaw;
 	struct xvfs_tclfs_server_info *fsHandlerData;
 	const Tcl_Filesystem *fsHandler;
