@@ -2,8 +2,7 @@
 
 namespace eval ::minirivet {}
 
-proc ::minirivet::parseString {string} {
-
+proc ::minirivet::parseStringToCode {string} {
 	set fixMap [list]
 	foreach char [list "\{" "\}" "\\"] {
 		lappend fixMap $char "\}; puts -nonewline \"\\$char\"; puts -nonewline \{"
@@ -37,6 +36,11 @@ proc ::minirivet::parseString {string} {
 
 	}
 
+	return $code
+}
+
+proc ::minirivet::parseString {string} {
+	set code [parseStringToCode $string]
 	tailcall namespace eval ::request $code
 }
 

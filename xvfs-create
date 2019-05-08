@@ -1,9 +1,33 @@
 #! /usr/bin/env tclsh
 
 set sourceDirectory [file dirname [file normalize [info script]]]
+
 lappend auto_path [file join $sourceDirectory lib]
-set template [file join xvfs.c.rvt]
+
+set template [file join $sourceDirectory xvfs.c.rvt]
 
 package require minirivet
 
-minirivet::parse $template
+set mode "run"
+if {[lindex $argv 0] == "--dump-tcl"} {
+	set mode "dump-tcl"
+}
+
+switch -- $mode {
+	"run" {
+		::minirivet::parse $template
+	}
+	"dump-tcl" {
+		set xvfs_tcl [file join $sourceDirectory lib xvfs xvfs.tcl]
+
+		puts "#! /usr/bin/env tclsh"
+		puts ""
+		puts [read [open $xvfs_tcl]]
+		puts ""
+		puts [::minirivet::parseStringToCode [read [open $template]]]
+	}
+	default {
+		puts stderr "error: Invalid mode: $mode"
+		exit 1
+	}
+}
