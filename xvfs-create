@@ -19,12 +19,22 @@ switch -- $mode {
 	}
 	"dump-tcl" {
 		set xvfs_tcl [file join $sourceDirectory lib xvfs xvfs.tcl]
+		set xvfs_core_h [file join $sourceDirectory xvfs-core.h]
+		set xvfs_core_c [file join $sourceDirectory xvfs-core.c]
+
+		set cleanup [list "#include <xvfs-core.h>" ""]
+
+		set core_header_data ""
+		append core_header_data [string map $cleanup [read [open $xvfs_core_h]]] "\n"
+		append core_header_data [string map $cleanup [read [open $xvfs_core_c]]] "\n"
 
 		puts "#! /usr/bin/env tclsh"
 		puts ""
 		puts [read [open $xvfs_tcl]]
 		puts ""
-		puts [::minirivet::parseStringToCode [read [open $template]]]
+		puts [list puts -nonewline $core_header_data]
+		puts ""
+		puts [string map $cleanup [::minirivet::parseStringToCode [read [open $template]]]]
 	}
 	default {
 		puts stderr "error: Invalid mode: $mode"
