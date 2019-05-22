@@ -3,11 +3,6 @@
 namespace eval ::minirivet {}
 
 proc ::minirivet::parseStringToCode {string} {
-	set fixMap [list]
-	foreach char [list "\{" "\}" "\\"] {
-		lappend fixMap $char "\}; puts -nonewline \"\\$char\"; puts -nonewline \{"
-	}
-
 	set code ""
 	while {$string ne ""} {
 		set endIndex [string first "<?" $string]
@@ -15,8 +10,7 @@ proc ::minirivet::parseStringToCode {string} {
 			set endIndex [expr {[string length $string] + 1}]
 		}
 
-
-		append code "puts -nonewline \{" [string map $fixMap [string range $string 0 $endIndex-1]] "\}; "
+		append code [list puts -nonewline [string range $string 0 $endIndex-1]] "; "
 		set string [string range $string $endIndex end]
 		set endIndex [string first "?>" $string]
 		if {$endIndex == -1} {
