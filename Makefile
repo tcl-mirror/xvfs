@@ -19,7 +19,8 @@ test: example.so
 	echo 'if {[catch { load ./example.so Xvfs_example; source //xvfs:/example/main.tcl }]} { puts stderr $$::errorInfo; exit 1 }; exit 0' | tclsh
 
 clean:
-	rm -f example.so example.o example.c
+	rm -f example.c example.c.new
+	rm -f example.so example.o
 
 distclean: clean
 
