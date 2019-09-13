@@ -38,8 +38,6 @@ static long xvfs_<?= $::xvfs::fsName ?>_nameToIndex(const char *path) {
 		return(XVFS_NAME_LOOKUP_ERROR);
 	}
 
-printf("Looking for %s\n", path);
-
 	pathLen = strlen(path);
 	pathHash = Tcl_ZlibAdler32(0, (const unsigned char *) path, pathLen);
 	switch (pathHash) {

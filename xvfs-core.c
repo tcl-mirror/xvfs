@@ -1,5 +1,8 @@
 #include <xvfs-core.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <tcl.h>
 
 #if defined(XVFS_MODE_FLEXIBLE) || defined(XVFS_MODE_SERVER)
@@ -26,18 +29,18 @@ struct xvfs_tclfs_instance_info {
 static const char *xvfs_relativePath(Tcl_Obj *path, struct xvfs_tclfs_instance_info *info) {
 	const char *pathStr, *rootStr;
 	int pathLen, rootLen;
-	
+
 	pathStr = Tcl_GetStringFromObj(path, &pathLen);
 	rootStr = Tcl_GetStringFromObj(info->mountpoint, &rootLen);
-	
+
 	if (pathLen < rootLen) {
 		return(NULL);
 	}
-	
+
 	if (memcmp(pathStr, rootStr, rootLen) != 0) {
 		return(NULL);
 	}
-	
+
 	if (pathLen == rootLen) {
 		return("");
 	}
@@ -46,10 +49,14 @@ static const char *xvfs_relativePath(Tcl_Obj *path, struct xvfs_tclfs_instance_i
 	if (pathStr[rootLen] != '/') {
 		return(NULL);
 	}
-	
+
 	return(pathStr + rootLen + 1);
 }
 
+#if 0
+/*
+ * Currently unused
+ */
 static const char *xvfs_perror(int xvfs_error) {
 	if (xvfs_error >= 0) {
 		return("Not an error");
@@ -70,18 +77,193 @@ static const char *xvfs_perror(int xvfs_error) {
 			return("Unknown error");
 	}
 }
+#endif
+
+static int xvfs_errorToErrno(int xvfs_error) {
+	if (xvfs_error >= 0) {
+		return(0);
+	}
+
+	switch (xvfs_error) {
+		case XVFS_RV_ERR_ENOENT:
+			return(ENOENT);
+		case XVFS_RV_ERR_EINVAL:
+			return(EINVAL);
+		case XVFS_RV_ERR_EISDIR:
+			return(EISDIR);
+		case XVFS_RV_ERR_ENOTDIR:
+			return(ENOTDIR);
+		case XVFS_RV_ERR_EFAULT:
+			return(EFAULT);
+		default:
+			return(ERANGE);
+	}
+}
+
+/*
+ * Xvfs Memory Channel
+ */
+struct xvfs_tclfs_channel_id {
+	Tcl_Channel channel;
+	struct xvfs_tclfs_instance_info *fsInstanceInfo;
+	Tcl_Obj *path;
+	Tcl_WideInt currentOffset;
+	Tcl_WideInt fileSize;
+};
+static Tcl_ChannelType xvfs_tclfs_channelType;
+
+static Tcl_Channel xvfs_tclfs_openChannel(Tcl_Obj *path, struct xvfs_tclfs_instance_info *instanceInfo) {
+	struct xvfs_tclfs_channel_id *channelInstanceData;
+	Tcl_Channel channel;
+	Tcl_StatBuf fileInfo;
+	int statRet;
+
+	statRet = instanceInfo->fsInfo->getStatProc(Tcl_GetString(path), &fileInfo);
+	if (statRet < 0) {
+		return(NULL);
+	}
+
+	channelInstanceData = (struct xvfs_tclfs_channel_id *) Tcl_Alloc(sizeof(*channelInstanceData));
+	channelInstanceData->currentOffset = 0;
+	channelInstanceData->channel = NULL;
+
+	channelInstanceData->fsInstanceInfo = instanceInfo;
+	channelInstanceData->path = path;
+	channelInstanceData->fileSize = fileInfo.st_size;
+	Tcl_IncrRefCount(path);
+
+	channel = Tcl_CreateChannel(&xvfs_tclfs_channelType, Tcl_GetString(path), channelInstanceData, TCL_READABLE);
+	if (!channel) {
+		Tcl_DecrRefCount(path);
+		Tcl_Free((char *) channelInstanceData);
+
+		return(NULL);
+	}
+
+	channelInstanceData->channel = channel;
+
+	return(channel);
+}
+
+static int xvfs_tclfs_closeChannel(ClientData channelInstanceData_p, Tcl_Interp *interp) {
+	struct xvfs_tclfs_channel_id *channelInstanceData;
+
+	channelInstanceData = (struct xvfs_tclfs_channel_id *) channelInstanceData_p;
+
+	Tcl_DecrRefCount(channelInstanceData->path);
+	Tcl_Free((char *) channelInstanceData);
+
+	return(0);
+}
+
+static int xvfs_tclfs_readChannel(ClientData channelInstanceData_p, char *buf, int bufSize, int *errorCodePtr) {
+	struct xvfs_tclfs_channel_id *channelInstanceData;
+	const unsigned char *data;
+	Tcl_WideInt offset, length;
+	char *path;
+
+	channelInstanceData = (struct xvfs_tclfs_channel_id *) channelInstanceData_p;
+
+	path = Tcl_GetString(channelInstanceData->path);
+	offset = channelInstanceData->currentOffset;
+	length = bufSize;
+
+	data = channelInstanceData->fsInstanceInfo->fsInfo->getDataProc(path, offset, &length);
+
+	if (length < 0) {
+		*errorCodePtr = xvfs_errorToErrno(length);
+
+		return(-1);
+	}
+
+	memcpy(buf, data, length);
+
+	channelInstanceData->currentOffset += length;
+
+	return(length);
+}
+
+static void xvfs_tclfs_watchChannel(ClientData channelInstanceData_p, int mask) {
+	if ((mask & TCL_READABLE) != TCL_READABLE) {
+		return;
+	}
+
+/* XXX:TODO: fprintf(stderr, "Incomplete watch called, mask = %i\n", mask); */
+	return;
+}
+
+static int xvfs_tclfs_seekChannel(ClientData channelInstanceData_p, long offset, int mode, int *errorCodePtr) {
+	struct xvfs_tclfs_channel_id *channelInstanceData;
+	Tcl_WideInt newOffset, fileSize;
+
+	channelInstanceData = (struct xvfs_tclfs_channel_id *) channelInstanceData_p;
+
+	newOffset = channelInstanceData->currentOffset;
+	fileSize = channelInstanceData->fileSize;
+
+	switch (mode) {
+		case SEEK_CUR:
+			newOffset += offset;
+			break;
+		case SEEK_SET:
+			newOffset = offset;
+			break;
+		case SEEK_END:
+			newOffset = fileSize + offset;
+			break;
+		default:
+			*errorCodePtr = xvfs_errorToErrno(XVFS_RV_ERR_EINVAL);
+
+			return(-1);
+	}
+
+	/*
+	 * We allow users to seek right up to the end of the buffer, but
+	 * no further, this way if they want to seek backwards from there
+	 * it is possible to do so.
+	 */
+	if (newOffset < 0 || newOffset > fileSize) {
+		*errorCodePtr = xvfs_errorToErrno(XVFS_RV_ERR_EINVAL);
+
+		return(-1);
+	}
+
+	channelInstanceData->currentOffset = newOffset;
+
+	return(channelInstanceData->currentOffset);
+}
+
+static void xvfs_tclfs_prepareChannelType(void) {
+	xvfs_tclfs_channelType.typeName = "xvfs";
+	xvfs_tclfs_channelType.version = TCL_CHANNEL_VERSION_2;
+	xvfs_tclfs_channelType.closeProc = xvfs_tclfs_closeChannel;
+	xvfs_tclfs_channelType.inputProc = xvfs_tclfs_readChannel;
+	xvfs_tclfs_channelType.outputProc = NULL;
+	xvfs_tclfs_channelType.watchProc = xvfs_tclfs_watchChannel;
+	xvfs_tclfs_channelType.getHandleProc = NULL;
+	xvfs_tclfs_channelType.seekProc = xvfs_tclfs_seekChannel;
+	xvfs_tclfs_channelType.setOptionProc = NULL;
+	xvfs_tclfs_channelType.getOptionProc = NULL;
+	xvfs_tclfs_channelType.close2Proc = NULL;
+	xvfs_tclfs_channelType.blockModeProc = NULL;
+	xvfs_tclfs_channelType.flushProc = NULL;
+	xvfs_tclfs_channelType.handlerProc = NULL;
+	xvfs_tclfs_channelType.wideSeekProc = NULL;
+	xvfs_tclfs_channelType.threadActionProc = NULL;
+	xvfs_tclfs_channelType.truncateProc = NULL;
+}
 
 /*
  * Internal Tcl_Filesystem functions, with the appropriate instance info
  */
 static int xvfs_tclfs_pathInFilesystem(Tcl_Obj *path, ClientData *dataPtr, struct xvfs_tclfs_instance_info *instanceInfo) {
 	const char *relativePath;
-	
+
 	relativePath = xvfs_relativePath(path, instanceInfo);
 	if (!relativePath) {
 		return(-1);
 	}
-	
+
 	return(TCL_OK);
 }
 
@@ -90,12 +272,12 @@ static int xvfs_tclfs_stat(Tcl_Obj *path, Tcl_StatBuf *statBuf, struct xvfs_tclf
 	int retval;
 
 	pathStr = xvfs_relativePath(path, instanceInfo);
-	
+
 	retval = instanceInfo->fsInfo->getStatProc(pathStr, statBuf);
 	if (retval < 0) {
 		retval = -1;
 	}
-	
+
 	return(retval);
 }
 
@@ -105,17 +287,14 @@ static Tcl_Obj *xvfs_tclfs_listVolumes(struct xvfs_tclfs_instance_info *instance
 
 static Tcl_Channel xvfs_tclfs_openFileChannel(Tcl_Interp *interp, Tcl_Obj *path, int mode, int permissions, struct xvfs_tclfs_instance_info *instanceInfo) {
 	const char *pathStr;
-	Tcl_WideInt length;
-	const char *data;
 
 	pathStr = xvfs_relativePath(path, instanceInfo);
 
-	/*
-	 * XXX:TODO: Do something to create the Tcl_Channel we
-	 * need to return here
-	 */
+	if (mode & O_WRONLY) {
+		return(NULL);
+	}
 
-	return(NULL);
+	return(xvfs_tclfs_openChannel(Tcl_NewStringObj(pathStr, -1), instanceInfo));
 }
 #endif /* XVFS_MODE_SERVER || XVFS_MODE_STANDALONE || XVFS_MODE_FLEIXBLE */
 
@@ -157,7 +336,7 @@ static Tcl_Filesystem xvfs_tclfs_standalone_fs;
 static int xvfs_standalone_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
 	int tcl_ret;
 	static int registered = 0;
-	
+
 	/*
 	 * Ensure this instance is not already registered
 	 */
@@ -176,7 +355,7 @@ static int xvfs_standalone_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsIn
 		}
 		return(TCL_ERROR);
 	}
-	
+
 	xvfs_tclfs_standalone_fs.typeName                   = "xvfs";
 	xvfs_tclfs_standalone_fs.structureLength            = sizeof(xvfs_tclfs_standalone_fs);
 	xvfs_tclfs_standalone_fs.version                    = TCL_FILESYSTEM_VERSION_1;
@@ -191,7 +370,7 @@ static int xvfs_standalone_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsIn
 	xvfs_tclfs_standalone_fs.statProc                   = xvfs_tclfs_standalone_stat;
 	xvfs_tclfs_standalone_fs.accessProc                 = NULL;
 	xvfs_tclfs_standalone_fs.openFileChannelProc        = xvfs_tclfs_standalone_openFileChannel;
-	xvfs_tclfs_standalone_fs.matchInDirectoryProc       = NULL;
+	xvfs_tclfs_standalone_fs.matchInDirectoryProc       = NULL; /* XXX:TODO */
 	xvfs_tclfs_standalone_fs.utimeProc                  = NULL;
 	xvfs_tclfs_standalone_fs.linkProc                   = NULL;
 	xvfs_tclfs_standalone_fs.listVolumesProc            = xvfs_tclfs_standalone_listVolumes;
@@ -212,16 +391,18 @@ static int xvfs_standalone_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsIn
 	xvfs_tclfs_standalone_info.fsInfo = fsInfo;
 	xvfs_tclfs_standalone_info.mountpoint = Tcl_NewObj();
 	Tcl_AppendStringsToObj(xvfs_tclfs_standalone_info.mountpoint, XVFS_ROOT_MOUNTPOINT, fsInfo->name, NULL);
-	
+
 	tcl_ret = Tcl_FSRegister(NULL, &xvfs_tclfs_standalone_fs);
 	if (tcl_ret != TCL_OK) {
 		if (interp) {
 			Tcl_SetResult(interp, "Tcl_FSRegister() failed", NULL);
 		}
-		
+
 		return(tcl_ret);
 	}
-	
+
+	xvfs_tclfs_prepareChannelType();
+
 	return(TCL_OK);
 }
 #endif /* XVFS_MODE_STANDALONE || XVFS_MODE_FLEXIBLE */
