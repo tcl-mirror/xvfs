@@ -109,6 +109,11 @@ struct xvfs_tclfs_channel_id {
 	Tcl_Obj *path;
 	Tcl_WideInt currentOffset;
 	Tcl_WideInt fileSize;
+	int eofMarked;
+};
+struct xvfs_tclfs_channel_event {
+	Tcl_Event tcl;
+	struct xvfs_tclfs_channel_id *channelInstanceData;
 };
 static Tcl_ChannelType xvfs_tclfs_channelType;
 
@@ -116,6 +121,7 @@ static Tcl_Channel xvfs_tclfs_openChannel(Tcl_Obj *path, struct xvfs_tclfs_insta
 	struct xvfs_tclfs_channel_id *channelInstanceData;
 	Tcl_Channel channel;
 	Tcl_StatBuf fileInfo;
+	Tcl_Obj *channelName;
 	int statRet;
 
 	statRet = instanceInfo->fsInfo->getStatProc(Tcl_GetString(path), &fileInfo);
@@ -125,14 +131,24 @@ static Tcl_Channel xvfs_tclfs_openChannel(Tcl_Obj *path, struct xvfs_tclfs_insta
 
 	channelInstanceData = (struct xvfs_tclfs_channel_id *) Tcl_Alloc(sizeof(*channelInstanceData));
 	channelInstanceData->currentOffset = 0;
+	channelInstanceData->eofMarked = 0;
 	channelInstanceData->channel = NULL;
 
+	channelName = Tcl_ObjPrintf("xvfs0x%llx", (unsigned long long) channelInstanceData);
+	if (!channelName) {
+		Tcl_Free((char *) channelInstanceData);
+
+		return(NULL);
+	}
+	Tcl_IncrRefCount(channelName);
+
 	channelInstanceData->fsInstanceInfo = instanceInfo;
-	channelInstanceData->path = path;
 	channelInstanceData->fileSize = fileInfo.st_size;
+	channelInstanceData->path = path;
 	Tcl_IncrRefCount(path);
 
-	channel = Tcl_CreateChannel(&xvfs_tclfs_channelType, Tcl_GetString(path), channelInstanceData, TCL_READABLE);
+	channel = Tcl_CreateChannel(&xvfs_tclfs_channelType, Tcl_GetString(channelName), channelInstanceData, TCL_READABLE);
+	Tcl_DecrRefCount(channelName);
 	if (!channel) {
 		Tcl_DecrRefCount(path);
 		Tcl_Free((char *) channelInstanceData);
@@ -164,6 +180,14 @@ static int xvfs_tclfs_readChannel(ClientData channelInstanceData_p, char *buf, i
 
 	channelInstanceData = (struct xvfs_tclfs_channel_id *) channelInstanceData_p;
 
+	/*
+	 * If we are already at the end of the file we can skip
+	 * attempting to read it
+	 */
+	if (channelInstanceData->eofMarked) {
+		return(0);
+	}
+
 	path = Tcl_GetString(channelInstanceData->path);
 	offset = channelInstanceData->currentOffset;
 	length = bufSize;
@@ -176,19 +200,54 @@ static int xvfs_tclfs_readChannel(ClientData channelInstanceData_p, char *buf, i
 		return(-1);
 	}
 
-	memcpy(buf, data, length);
+	if (length == 0) {
+		channelInstanceData->eofMarked = 1;
+	} else {
+		memcpy(buf, data, length);
 
-	channelInstanceData->currentOffset += length;
+		channelInstanceData->currentOffset += length;
+	}
 
 	return(length);
 }
 
+static int xvfs_tclfs_watchChannelEvent(Tcl_Event *event_p, int flags) {
+	struct xvfs_tclfs_channel_id *channelInstanceData;
+	struct xvfs_tclfs_channel_event *event;
+
+	event = (struct xvfs_tclfs_channel_event *) event_p;
+	channelInstanceData = event->channelInstanceData;
+
+	Tcl_NotifyChannel(channelInstanceData->channel, TCL_READABLE);
+
+	return(0);
+}
+
 static void xvfs_tclfs_watchChannel(ClientData channelInstanceData_p, int mask) {
+	struct xvfs_tclfs_channel_id *channelInstanceData;
+	struct xvfs_tclfs_channel_event *event;
+
 	if ((mask & TCL_READABLE) != TCL_READABLE) {
 		return;
 	}
 
-/* XXX:TODO: fprintf(stderr, "Incomplete watch called, mask = %i\n", mask); */
+	channelInstanceData = (struct xvfs_tclfs_channel_id *) channelInstanceData_p;
+
+	/*
+	 * If the read call has marked that we have reached EOF,
+	 * do not signal any further
+	 */
+	if (channelInstanceData->eofMarked) {
+		return;
+	}
+
+	event = (struct xvfs_tclfs_channel_event *) Tcl_Alloc(sizeof(*event));
+	event->tcl.proc = xvfs_tclfs_watchChannelEvent;
+	event->tcl.nextPtr = NULL;
+	event->channelInstanceData = channelInstanceData;
+
+	Tcl_QueueEvent((Tcl_Event *) event, TCL_QUEUE_TAIL);
+
 	return;
 }
 
@@ -228,7 +287,10 @@ static int xvfs_tclfs_seekChannel(ClientData channelInstanceData_p, long offset,
 		return(-1);
 	}
 
-	channelInstanceData->currentOffset = newOffset;
+	if (newOffset != channelInstanceData->currentOffset) {
+		channelInstanceData->eofMarked = 0;
+		channelInstanceData->currentOffset = newOffset;
+	}
 
 	return(channelInstanceData->currentOffset);
 }
