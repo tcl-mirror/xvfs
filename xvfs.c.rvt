@@ -155,7 +155,7 @@ static const unsigned char *xvfs_<?= $::xvfs::fsName ?>_getData(const char *path
 		resultLength = MIN(fileInfo->size - start, *length);
 	}
 	*length = resultLength;
-	
+
 	/*
 	 * Return the data
 	 */
