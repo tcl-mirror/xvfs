@@ -38,6 +38,8 @@ static long xvfs_<?= $::xvfs::fsName ?>_nameToIndex(const char *path) {
 		return(XVFS_NAME_LOOKUP_ERROR);
 	}
 
+printf("Looking for %s\n", path);
+
 	pathLen = strlen(path);
 	pathHash = Tcl_ZlibAdler32(0, (const unsigned char *) path, pathLen);
 	switch (pathHash) {
@@ -82,6 +84,7 @@ static const char **xvfs_<?= $::xvfs::fsName ?>_getChildren(const char *path, Tc
 	 */
 	inode = xvfs_<?= $::xvfs::fsName ?>_nameToIndex(path);
 	if (inode == XVFS_NAME_LOOKUP_ERROR) {
+		*count = XVFS_RV_ERR_ENOENT;
 		return(NULL);
 	}
 	
@@ -91,6 +94,7 @@ static const char **xvfs_<?= $::xvfs::fsName ?>_getChildren(const char *path, Tc
 	 * Ensure this is a directory
 	 */
 	if (fileInfo->type != XVFS_FILE_TYPE_DIR) {
+		*count = XVFS_RV_ERR_ENOTDIR;
 		return(NULL);
 	}
 	
@@ -106,15 +110,17 @@ static const unsigned char *xvfs_<?= $::xvfs::fsName ?>_getData(const char *path
 	/*
 	 * Validate input parameters
 	 */
-	if (start < 0) {
-		return(NULL);
-	}
-	
 	if (length == NULL) {
 		return(NULL);
 	}
 	
+	if (start < 0) {
+		*length = XVFS_RV_ERR_EINVAL;
+		return(NULL);
+	}
+	
 	if (*length < 0) {
+		*length = XVFS_RV_ERR_EINVAL;
 		return(NULL);
 	}
 	
@@ -123,6 +129,7 @@ static const unsigned char *xvfs_<?= $::xvfs::fsName ?>_getData(const char *path
 	 */
 	inode = xvfs_<?= $::xvfs::fsName ?>_nameToIndex(path);
 	if (inode == XVFS_NAME_LOOKUP_ERROR) {
+		*length = XVFS_RV_ERR_ENOENT;
 		return(NULL);
 	}
 	
@@ -132,6 +139,7 @@ static const unsigned char *xvfs_<?= $::xvfs::fsName ?>_getData(const char *path
 	 * Ensure this is a file that can be read
 	 */
 	if (fileInfo->type != XVFS_FILE_TYPE_REG) {
+		*length = XVFS_RV_ERR_EISDIR;
 		return(NULL);
 	}
 
@@ -139,7 +147,7 @@ static const unsigned char *xvfs_<?= $::xvfs::fsName ?>_getData(const char *path
 	 * Validate the length
 	 */
 	if (start > fileInfo->size) {
-		*length = -1;
+		*length = XVFS_RV_ERR_EFAULT;
 		return(NULL);
 	}
 
@@ -164,7 +172,7 @@ static int xvfs_<?= $::xvfs::fsName ?>_getStat(const char *path, Tcl_StatBuf *st
 	 * Validate input parameters
 	 */
 	if (!statBuf) {
-		return(-1);
+		return(XVFS_RV_ERR_EINVAL);
 	}
 	
 	/*
@@ -172,7 +180,7 @@ static int xvfs_<?= $::xvfs::fsName ?>_getStat(const char *path, Tcl_StatBuf *st
 	 */
 	inode = xvfs_<?= $::xvfs::fsName ?>_nameToIndex(path);
 	if (inode == XVFS_NAME_LOOKUP_ERROR) {
-		return(-1);
+		return(XVFS_RV_ERR_ENOENT);
 	}
 	
 	fileInfo = &xvfs_<?= $::xvfs::fsName ?>_data[inode];

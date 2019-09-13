@@ -9,6 +9,11 @@ typedef const char **(*xvfs_proc_getChildren_t)(const char *path, Tcl_WideInt *c
 typedef const unsigned char *(*xvfs_proc_getData_t)(const char *path, Tcl_WideInt start, Tcl_WideInt *length);
 typedef int (*xvfs_proc_getStat_t)(const char *path, Tcl_StatBuf *statBuf);
 
+/*
+ * Interface for the filesystem to fill out before registering.
+ * The protocolVersion is provided first so that if this
+ * needs to change over time it can be appropriately handled.
+ */
 struct Xvfs_FSInfo {
 	int                      protocolVersion;
 	const char               *name;
@@ -16,6 +21,16 @@ struct Xvfs_FSInfo {
 	xvfs_proc_getData_t      getDataProc;
 	xvfs_proc_getStat_t      getStatProc;
 };
+
+/*
+ * Error codes for various calls.  This is part of the ABI and must
+ * not be changed.
+ */
+#define XVFS_RV_ERR_ENOENT   (-8192)
+#define XVFS_RV_ERR_EINVAL   (-8193)
+#define XVFS_RV_ERR_EISDIR   (-8194)
+#define XVFS_RV_ERR_ENOTDIR  (-8195)
+#define XVFS_RV_ERR_EFAULT   (-8196)
 
 #define XVFS_REGISTER_INTERFACE(name) int name(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo);
 

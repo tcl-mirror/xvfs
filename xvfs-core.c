@@ -50,6 +50,27 @@ static const char *xvfs_relativePath(Tcl_Obj *path, struct xvfs_tclfs_instance_i
 	return(pathStr + rootLen + 1);
 }
 
+static const char *xvfs_perror(int xvfs_error) {
+	if (xvfs_error >= 0) {
+		return("Not an error");
+	}
+
+	switch (xvfs_error) {
+		case XVFS_RV_ERR_ENOENT:
+			return("No such file or directory");
+		case XVFS_RV_ERR_EINVAL:
+			return("Invalid argument");
+		case XVFS_RV_ERR_EISDIR:
+			return("Is a directory");
+		case XVFS_RV_ERR_ENOTDIR:
+			return("Not a directory");
+		case XVFS_RV_ERR_EFAULT:
+			return("Bad address");
+		default:
+			return("Unknown error");
+	}
+}
+
 /*
  * Internal Tcl_Filesystem functions, with the appropriate instance info
  */
@@ -71,6 +92,9 @@ static int xvfs_tclfs_stat(Tcl_Obj *path, Tcl_StatBuf *statBuf, struct xvfs_tclf
 	pathStr = xvfs_relativePath(path, instanceInfo);
 	
 	retval = instanceInfo->fsInfo->getStatProc(pathStr, statBuf);
+	if (retval < 0) {
+		retval = -1;
+	}
 	
 	return(retval);
 }
@@ -81,8 +105,11 @@ static Tcl_Obj *xvfs_tclfs_listVolumes(struct xvfs_tclfs_instance_info *instance
 
 static Tcl_Channel xvfs_tclfs_openFileChannel(Tcl_Interp *interp, Tcl_Obj *path, int mode, int permissions, struct xvfs_tclfs_instance_info *instanceInfo) {
 	const char *pathStr;
+	Tcl_WideInt length;
+	const char *data;
 
 	pathStr = xvfs_relativePath(path, instanceInfo);
+
 	/*
 	 * XXX:TODO: Do something to create the Tcl_Channel we
 	 * need to return here
