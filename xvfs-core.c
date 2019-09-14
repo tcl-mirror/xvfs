@@ -110,6 +110,8 @@ struct xvfs_tclfs_channel_id {
 	Tcl_WideInt currentOffset;
 	Tcl_WideInt fileSize;
 	int eofMarked;
+	int queuedEvents;
+	int closed;
 };
 struct xvfs_tclfs_channel_event {
 	Tcl_Event tcl;
@@ -132,6 +134,8 @@ static Tcl_Channel xvfs_tclfs_openChannel(Tcl_Obj *path, struct xvfs_tclfs_insta
 	channelInstanceData = (struct xvfs_tclfs_channel_id *) Tcl_Alloc(sizeof(*channelInstanceData));
 	channelInstanceData->currentOffset = 0;
 	channelInstanceData->eofMarked = 0;
+	channelInstanceData->queuedEvents = 0;
+	channelInstanceData->closed = 0;
 	channelInstanceData->channel = NULL;
 
 	channelName = Tcl_ObjPrintf("xvfs0x%llx", (unsigned long long) channelInstanceData);
@@ -161,10 +165,41 @@ static Tcl_Channel xvfs_tclfs_openChannel(Tcl_Obj *path, struct xvfs_tclfs_insta
 	return(channel);
 }
 
+static int xvfs_tclfs_closeChannel(ClientData channelInstanceData_p, Tcl_Interp *interp);
+static int xvfs_tclfs_closeChannelEvent(Tcl_Event *event_p, int flags) {
+	struct xvfs_tclfs_channel_id *channelInstanceData;
+	struct xvfs_tclfs_channel_event *event;
+
+	event = (struct xvfs_tclfs_channel_event *) event_p;
+	channelInstanceData = event->channelInstanceData;
+
+	channelInstanceData->queuedEvents--;
+
+	xvfs_tclfs_closeChannel((ClientData) channelInstanceData, NULL);
+
+	return(1);
+}
+
 static int xvfs_tclfs_closeChannel(ClientData channelInstanceData_p, Tcl_Interp *interp) {
 	struct xvfs_tclfs_channel_id *channelInstanceData;
+	struct xvfs_tclfs_channel_event *event;
 
 	channelInstanceData = (struct xvfs_tclfs_channel_id *) channelInstanceData_p;
+
+	channelInstanceData->closed = 1;
+
+	if (channelInstanceData->queuedEvents != 0) {
+		event = (struct xvfs_tclfs_channel_event *) Tcl_Alloc(sizeof(*event));
+		event->tcl.proc = xvfs_tclfs_closeChannelEvent;
+		event->tcl.nextPtr = NULL;
+		event->channelInstanceData = channelInstanceData;
+
+		channelInstanceData->queuedEvents++;
+
+		Tcl_QueueEvent((Tcl_Event *) event, TCL_QUEUE_TAIL);
+
+		return(0);
+	}
 
 	Tcl_DecrRefCount(channelInstanceData->path);
 	Tcl_Free((char *) channelInstanceData);
@@ -218,9 +253,15 @@ static int xvfs_tclfs_watchChannelEvent(Tcl_Event *event_p, int flags) {
 	event = (struct xvfs_tclfs_channel_event *) event_p;
 	channelInstanceData = event->channelInstanceData;
 
+	channelInstanceData->queuedEvents--;
+
+	if (channelInstanceData->closed) {
+		return(1);
+	}
+
 	Tcl_NotifyChannel(channelInstanceData->channel, TCL_READABLE);
 
-	return(0);
+	return(1);
 }
 
 static void xvfs_tclfs_watchChannel(ClientData channelInstanceData_p, int mask) {
@@ -245,6 +286,8 @@ static void xvfs_tclfs_watchChannel(ClientData channelInstanceData_p, int mask) 
 	event->tcl.proc = xvfs_tclfs_watchChannelEvent;
 	event->tcl.nextPtr = NULL;
 	event->channelInstanceData = channelInstanceData;
+
+	channelInstanceData->queuedEvents++;
 
 	Tcl_QueueEvent((Tcl_Event *) event, TCL_QUEUE_TAIL);
 

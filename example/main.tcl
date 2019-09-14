@@ -45,5 +45,7 @@ if {$calls != ($size + 1)} {
 if {[lsort -integer $output] != $output} {
 	error "EXPECTED [lsort -integer $output], GOT $output"
 }
+close $fd
+update idle
 
 puts "ALL TESTS PASSED"
