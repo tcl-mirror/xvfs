@@ -27,6 +27,7 @@ struct xvfs_tclfs_instance_info {
  * Internal Core Utilities
  */
 static const char *xvfs_relativePath(Tcl_Obj *path, struct xvfs_tclfs_instance_info *info) {
+	Tcl_Obj *currentDirectory;
 	const char *pathStr, *rootStr;
 	const char *pathFinal;
 	int pathLen, rootLen;
@@ -34,7 +35,14 @@ static const char *xvfs_relativePath(Tcl_Obj *path, struct xvfs_tclfs_instance_i
 	rootStr = Tcl_GetStringFromObj(info->mountpoint, &rootLen);
 	pathStr = Tcl_GetStringFromObj(path, &pathLen);
 	if (pathStr[0] != '/') {
-		path = Tcl_ObjPrintf("%s/%s", Tcl_GetString(Tcl_FSGetCwd(NULL)), pathStr);
+		currentDirectory = Tcl_FSGetCwd(NULL);
+		Tcl_IncrRefCount(currentDirectory);
+
+		/* XXX:TODO: Free this */
+		path = Tcl_ObjPrintf("%s/%s", Tcl_GetString(currentDirectory), pathStr);
+		Tcl_IncrRefCount(path);
+		Tcl_DecrRefCount(currentDirectory);
+
 		pathStr = Tcl_GetStringFromObj(path, &pathLen);
 	}
 
@@ -541,8 +549,8 @@ static int xvfs_tclfs_matchInDir(Tcl_Interp *interp, Tcl_Obj *resultPtr, Tcl_Obj
 		}
 
 		childObj = Tcl_DuplicateObj(path);
-		Tcl_AppendStringsToObj(childObj, "/", child, NULL);
 		Tcl_IncrRefCount(childObj);
+		Tcl_AppendStringsToObj(childObj, "/", child, NULL);
 
 		if (!xvfs_tclfs_verifyType(childObj, types, instanceInfo)) {
 			Tcl_DecrRefCount(childObj);
@@ -662,10 +670,14 @@ static int xvfs_standalone_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsIn
 
 	xvfs_tclfs_standalone_info.fsInfo = fsInfo;
 	xvfs_tclfs_standalone_info.mountpoint = Tcl_NewObj();
-	Tcl_AppendStringsToObj(xvfs_tclfs_standalone_info.mountpoint, XVFS_ROOT_MOUNTPOINT, fsInfo->name, NULL);
 
+	Tcl_IncrRefCount(xvfs_tclfs_standalone_info.mountpoint);
+	Tcl_AppendStringsToObj(xvfs_tclfs_standalone_info.mountpoint, XVFS_ROOT_MOUNTPOINT, fsInfo->name, NULL);
+	
 	tcl_ret = Tcl_FSRegister(NULL, &xvfs_tclfs_standalone_fs);
 	if (tcl_ret != TCL_OK) {
+		Tcl_DecrRefCount(xvfs_tclfs_standalone_info.mountpoint);
+
 		if (interp) {
 			Tcl_SetResult(interp, "Tcl_FSRegister() failed", NULL);
 		}
