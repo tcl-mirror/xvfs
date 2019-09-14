@@ -107,4 +107,17 @@ if {[llength $check] != 1} {
 	error "EXPECTED 1, GOT [llength $check] ($check)"
 }
 
+set check [glob_verify -type d lib/*]
+if {[llength $check] != 1} {
+	error "EXPECTED 1, GOT [llength $check] ($check)"
+}
+
+cd $dir
+cd lib
+glob *
+
+
+lappend auto_path ${dir}/lib
+package require hello
+
 puts "ALL TESTS PASSED"

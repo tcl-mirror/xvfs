@@ -31,8 +31,12 @@ static const char *xvfs_relativePath(Tcl_Obj *path, struct xvfs_tclfs_instance_i
 	const char *pathFinal;
 	int pathLen, rootLen;
 
-	pathStr = Tcl_GetStringFromObj(path, &pathLen);
 	rootStr = Tcl_GetStringFromObj(info->mountpoint, &rootLen);
+	pathStr = Tcl_GetStringFromObj(path, &pathLen);
+	if (pathStr[0] != '/') {
+		path = Tcl_ObjPrintf("%s/%s", Tcl_GetString(Tcl_FSGetCwd(NULL)), pathStr);
+		pathStr = Tcl_GetStringFromObj(path, &pathLen);
+	}
 
 	if (pathLen < rootLen) {
 		return(NULL);
@@ -398,6 +402,31 @@ static int xvfs_tclfs_stat(Tcl_Obj *path, Tcl_StatBuf *statBuf, struct xvfs_tclf
 	return(retval);
 }
 
+static int xvfs_tclfs_access(Tcl_Obj *path, int mode, struct xvfs_tclfs_instance_info *instanceInfo) {
+	const char *pathStr;
+	Tcl_StatBuf fileInfo;
+	int statRetVal;
+
+	pathStr = xvfs_relativePath(path, instanceInfo);
+
+	if (mode & W_OK) {
+		return(-1);
+	}
+
+	statRetVal = instanceInfo->fsInfo->getStatProc(pathStr, &fileInfo);
+	if (statRetVal < 0) {
+		return(-1);
+	}
+
+	if (mode & X_OK) {
+		if (!(fileInfo.st_mode & 040000)) {
+			return(-1);
+		}
+	}
+
+	return(0);
+}
+
 static Tcl_Obj *xvfs_tclfs_listVolumes(struct xvfs_tclfs_instance_info *instanceInfo) {
 	return(NULL);
 }
@@ -429,8 +458,14 @@ static int xvfs_tclfs_verifyType(Tcl_Obj *path, Tcl_GlobTypeData *types, struct 
 	}
 
 	if (types->perm != TCL_GLOB_PERM_RONLY) {
-		if (types->perm & (TCL_GLOB_PERM_W | TCL_GLOB_PERM_X | TCL_GLOB_PERM_HIDDEN)) {
+		if (types->perm & (TCL_GLOB_PERM_W | TCL_GLOB_PERM_HIDDEN)) {
 			return(0);
+		}
+
+		if ((types->perm & TCL_GLOB_PERM_X) == TCL_GLOB_PERM_X) {
+			if (!(fileInfo.st_mode & 040000)) {
+				return(0);
+			}
 		}
 	}
 
@@ -540,6 +575,10 @@ static int xvfs_tclfs_standalone_stat(Tcl_Obj *path, Tcl_StatBuf *statBuf) {
 	return(xvfs_tclfs_stat(path, statBuf, &xvfs_tclfs_standalone_info));
 }
 
+static int xvfs_tclfs_standalone_access(Tcl_Obj *path, int mode) {
+	return(xvfs_tclfs_access(path, mode, &xvfs_tclfs_standalone_info));
+}
+
 static Tcl_Obj *xvfs_tclfs_standalone_listVolumes(void) {
 	return(xvfs_tclfs_listVolumes(&xvfs_tclfs_standalone_info));
 }
@@ -601,7 +640,7 @@ static int xvfs_standalone_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsIn
 	xvfs_tclfs_standalone_fs.filesystemPathTypeProc     = NULL;
 	xvfs_tclfs_standalone_fs.filesystemSeparatorProc    = NULL;
 	xvfs_tclfs_standalone_fs.statProc                   = xvfs_tclfs_standalone_stat;
-	xvfs_tclfs_standalone_fs.accessProc                 = NULL;
+	xvfs_tclfs_standalone_fs.accessProc                 = xvfs_tclfs_standalone_access;
 	xvfs_tclfs_standalone_fs.openFileChannelProc        = xvfs_tclfs_standalone_openFileChannel;
 	xvfs_tclfs_standalone_fs.matchInDirectoryProc       = xvfs_tclfs_standalone_matchInDir;
 	xvfs_tclfs_standalone_fs.utimeProc                  = NULL;
