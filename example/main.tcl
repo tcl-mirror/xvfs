@@ -1,4 +1,6 @@
-set file "//xvfs:/example/foo"
+set dir  "//xvfs:/example"
+set dirNative  [file join [pwd] example]
+set file "${dir}/foo"
 
 set fd [open $file]
 seek $fd 0 end
@@ -47,5 +49,62 @@ if {[lsort -integer $output] != $output} {
 }
 close $fd
 update idle
+
+
+proc glob_verify {args} {
+	set rv [glob -nocomplain -directory $::dir {*}$args]
+	set verify [glob -nocomplain -directory $::dirNative {*}$args]
+
+	if {[llength $rv] != [llength $verify]} {
+		error "VERIFY FAILED: glob ... $args ($rv versus $verify)"
+	}
+
+	return $rv
+}
+
+set check [glob_verify *]
+if {[llength $check] < 2} {
+	error "EXPECTED >=2, GOT [llength $check] ($check)"
+}
+
+set check [glob_verify f*]
+if {[llength $check] != 1} {
+	error "EXPECTED 1, GOT [llength $check] ($check)"
+}
+
+set check [glob_verify ./f*]
+if {[llength $check] != 1} {
+	error "EXPECTED 1, GOT [llength $check] ($check)"
+}
+
+set check [glob_verify -type f ./f*]
+if {[llength $check] != 1} {
+	error "EXPECTED 1, GOT [llength $check] ($check)"
+}
+
+set check [glob_verify -type d ./f*]
+if {[llength $check] != 0} {
+	error "EXPECTED 0, GOT [llength $check] ($check)"
+}
+
+set check [glob_verify x*]
+if {[llength $check] != 0} {
+	error "EXPECTED 0, GOT [llength $check] ($check)"
+}
+
+set check [glob_verify lib/*]
+if {[llength $check] != 1} {
+	error "EXPECTED 1, GOT [llength $check] ($check)"
+}
+
+set check [lindex $check 0]
+if {![string match $dir/* $check]} {
+	error "EXPECTED \"$dir/*\", GOT $check"
+}
+
+set check [glob_verify -type d *]
+if {[llength $check] != 1} {
+	error "EXPECTED 1, GOT [llength $check] ($check)"
+}
 
 puts "ALL TESTS PASSED"

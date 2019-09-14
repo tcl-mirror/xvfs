@@ -28,6 +28,7 @@ struct xvfs_tclfs_instance_info {
  */
 static const char *xvfs_relativePath(Tcl_Obj *path, struct xvfs_tclfs_instance_info *info) {
 	const char *pathStr, *rootStr;
+	const char *pathFinal;
 	int pathLen, rootLen;
 
 	pathStr = Tcl_GetStringFromObj(path, &pathLen);
@@ -50,13 +51,21 @@ static const char *xvfs_relativePath(Tcl_Obj *path, struct xvfs_tclfs_instance_i
 		return(NULL);
 	}
 
-	return(pathStr + rootLen + 1);
+	pathFinal = pathStr + rootLen + 1;
+	pathLen  -= rootLen + 1;
+
+	if (pathLen == 1 && memcmp(pathFinal, ".", 1) == 0) {
+		return("");
+	}
+
+	while (pathLen >= 2 && memcmp(pathFinal, "./", 2) == 0) {
+		pathFinal += 2;
+		pathLen   -= 2;
+	}
+
+	return(pathFinal);
 }
 
-#if 0
-/*
- * Currently unused
- */
 static const char *xvfs_perror(int xvfs_error) {
 	if (xvfs_error >= 0) {
 		return("Not an error");
@@ -73,11 +82,12 @@ static const char *xvfs_perror(int xvfs_error) {
 			return("Not a directory");
 		case XVFS_RV_ERR_EFAULT:
 			return("Bad address");
+		case XVFS_RV_ERR_INTERNAL:
+			return("Internal error");
 		default:
 			return("Unknown error");
 	}
 }
-#endif
 
 static int xvfs_errorToErrno(int xvfs_error) {
 	if (xvfs_error >= 0) {
@@ -95,6 +105,8 @@ static int xvfs_errorToErrno(int xvfs_error) {
 			return(ENOTDIR);
 		case XVFS_RV_ERR_EFAULT:
 			return(EFAULT);
+		case XVFS_RV_ERR_INTERNAL:
+			return(EINVAL);
 		default:
 			return(ERANGE);
 	}
@@ -401,6 +413,118 @@ static Tcl_Channel xvfs_tclfs_openFileChannel(Tcl_Interp *interp, Tcl_Obj *path,
 
 	return(xvfs_tclfs_openChannel(Tcl_NewStringObj(pathStr, -1), instanceInfo));
 }
+
+static int xvfs_tclfs_verifyType(Tcl_Obj *path, Tcl_GlobTypeData *types, struct xvfs_tclfs_instance_info *instanceInfo) {
+	const char *pathStr;
+	Tcl_StatBuf fileInfo;
+	int statRetVal;
+
+	statRetVal = xvfs_tclfs_stat(path, &fileInfo, instanceInfo);
+	if (statRetVal != 0) {
+		return(0);
+	}
+
+	if (!types) {
+		return(1);
+	}
+
+	if (types->perm != TCL_GLOB_PERM_RONLY) {
+		if (types->perm & (TCL_GLOB_PERM_W | TCL_GLOB_PERM_X | TCL_GLOB_PERM_HIDDEN)) {
+			return(0);
+		}
+	}
+
+	if (types->type & (TCL_GLOB_TYPE_BLOCK | TCL_GLOB_TYPE_CHAR | TCL_GLOB_TYPE_PIPE | TCL_GLOB_TYPE_SOCK | TCL_GLOB_TYPE_LINK)) {
+		return(0);
+	}
+
+	if ((types->type & TCL_GLOB_TYPE_DIR) == TCL_GLOB_TYPE_DIR) {
+		if (!(fileInfo.st_mode & 040000)) {
+			return(0);
+		}
+	}
+
+	if ((types->type & TCL_GLOB_TYPE_FILE) == TCL_GLOB_TYPE_FILE) {
+		if (!(fileInfo.st_mode & 0100000)) {
+			return(0);
+		}
+	}
+
+	if ((types->type & TCL_GLOB_TYPE_MOUNT) == TCL_GLOB_TYPE_MOUNT) {
+		pathStr = xvfs_relativePath(path, instanceInfo);
+		if (!pathStr) {
+			return(0);
+		}
+
+		if (strlen(pathStr) != 0) {
+			return(0);
+		}
+	}
+
+	return(1);
+}
+
+static int xvfs_tclfs_matchInDir(Tcl_Interp *interp, Tcl_Obj *resultPtr, Tcl_Obj *path, const char *pattern, Tcl_GlobTypeData *types, struct xvfs_tclfs_instance_info *instanceInfo) {
+	const char *pathStr;
+	const char **children, *child;
+	Tcl_WideInt childrenCount, idx;
+	Tcl_Obj *childObj;
+	int tclRetVal;
+
+	if (pattern == NULL) {
+		if (xvfs_tclfs_verifyType(path, types, instanceInfo)) {
+			return(TCL_OK);
+		}
+
+		return(TCL_ERROR);
+	}
+
+	pathStr = xvfs_relativePath(path, instanceInfo);
+	if (!pathStr) {
+		if (interp) {
+			Tcl_SetResult(interp, (char *) xvfs_perror(XVFS_RV_ERR_ENOENT), NULL);
+		}
+
+		return(TCL_ERROR);
+	}
+
+	childrenCount = 0;
+	children = instanceInfo->fsInfo->getChildrenProc(pathStr, &childrenCount);
+	if (childrenCount < 0) {
+		if (interp) {
+			Tcl_SetResult(interp, (char *) xvfs_perror(childrenCount), NULL);
+		}
+
+		return(TCL_ERROR);
+	}
+
+	for (idx = 0; idx < childrenCount; idx++) {
+		child = children[idx];
+
+		if (!Tcl_StringMatch(child, pattern)) {
+			continue;
+		}
+
+		childObj = Tcl_DuplicateObj(path);
+		Tcl_AppendStringsToObj(childObj, "/", child, NULL);
+		Tcl_IncrRefCount(childObj);
+
+		if (!xvfs_tclfs_verifyType(childObj, types, instanceInfo)) {
+			Tcl_DecrRefCount(childObj);
+
+			continue;
+		}
+
+		tclRetVal = Tcl_ListObjAppendElement(interp, resultPtr, childObj);
+		Tcl_DecrRefCount(childObj);
+
+		if (tclRetVal != TCL_OK) {
+			return(tclRetVal);
+		}
+	}
+
+	return(TCL_OK);
+}
 #endif /* XVFS_MODE_SERVER || XVFS_MODE_STANDALONE || XVFS_MODE_FLEIXBLE */
 
 #if defined(XVFS_MODE_STANDALONE) || defined(XVFS_MODE_FLEXIBLE)
@@ -422,6 +546,10 @@ static Tcl_Obj *xvfs_tclfs_standalone_listVolumes(void) {
 
 static Tcl_Channel xvfs_tclfs_standalone_openFileChannel(Tcl_Interp *interp, Tcl_Obj *path, int mode, int permissions) {
 	return(xvfs_tclfs_openFileChannel(interp, path, mode, permissions, &xvfs_tclfs_standalone_info));
+}
+
+static int xvfs_tclfs_standalone_matchInDir(Tcl_Interp *interp, Tcl_Obj *resultPtr, Tcl_Obj *pathPtr, const char *pattern, Tcl_GlobTypeData *types) {
+	return(xvfs_tclfs_matchInDir(interp, resultPtr, pathPtr, pattern, types, &xvfs_tclfs_standalone_info));
 }
 
 /*
@@ -475,7 +603,7 @@ static int xvfs_standalone_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsIn
 	xvfs_tclfs_standalone_fs.statProc                   = xvfs_tclfs_standalone_stat;
 	xvfs_tclfs_standalone_fs.accessProc                 = NULL;
 	xvfs_tclfs_standalone_fs.openFileChannelProc        = xvfs_tclfs_standalone_openFileChannel;
-	xvfs_tclfs_standalone_fs.matchInDirectoryProc       = NULL; /* XXX:TODO */
+	xvfs_tclfs_standalone_fs.matchInDirectoryProc       = xvfs_tclfs_standalone_matchInDir;
 	xvfs_tclfs_standalone_fs.utimeProc                  = NULL;
 	xvfs_tclfs_standalone_fs.linkProc                   = NULL;
 	xvfs_tclfs_standalone_fs.listVolumesProc            = xvfs_tclfs_standalone_listVolumes;

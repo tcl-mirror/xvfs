@@ -31,6 +31,7 @@ struct Xvfs_FSInfo {
 #define XVFS_RV_ERR_EISDIR   (-8194)
 #define XVFS_RV_ERR_ENOTDIR  (-8195)
 #define XVFS_RV_ERR_EFAULT   (-8196)
+#define XVFS_RV_ERR_INTERNAL (-16383)
 
 #define XVFS_REGISTER_INTERFACE(name) int name(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo);
 

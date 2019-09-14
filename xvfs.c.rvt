@@ -194,12 +194,12 @@ static int xvfs_<?= $::xvfs::fsName ?>_getStat(const char *path, Tcl_StatBuf *st
 	statBuf->st_blksize = XVFS_FILE_BLOCKSIZE;
 	
 	if (fileInfo->type == XVFS_FILE_TYPE_REG) {
-		statBuf->st_mode   = 0400;
+		statBuf->st_mode   = 0100400;
 		statBuf->st_nlink  = 1;
 		statBuf->st_size   = fileInfo->size;
 		statBuf->st_blocks = (fileInfo->size + statBuf->st_blksize - 1) / statBuf->st_blksize;
 	} else if (fileInfo->type == XVFS_FILE_TYPE_DIR) {
-		statBuf->st_mode   = 0500;
+		statBuf->st_mode   = 040500;
 		statBuf->st_nlink  = fileInfo->size;
 		statBuf->st_size   = fileInfo->size;
 		statBuf->st_blocks = 1;
