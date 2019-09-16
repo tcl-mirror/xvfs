@@ -73,11 +73,19 @@ tcltest::test xvfs-seek-read-past-eof "Xvfs Seek Then Read Past EOF Test" -setup
 	unset fd
 } -result ""
 
-tcltest::test xvfs-basic-open-write "Xvfs Open For Writing Test" -setup {
+tcltest::test xvfs-basic-open-neg "Xvfs Open Non-Existant File Test" -body {
 	unset -nocomplain fd
-} -body {
+	set fd [open $rootDir/does-not-exist]
+} -cleanup {
+	if {[info exists fd]} {
+		close $fd
+		unset fd
+	}
+} -returnCodes error -result "no such file or directory"
+
+tcltest::test xvfs-basic-open-write "Xvfs Open For Writing Test" -body {
+	unset -nocomplain fd
 	set fd [open $rootDir/new-file w]
-	close $fd
 } -cleanup {
 	if {[info exists fd]} {
 		close $fd
@@ -87,6 +95,17 @@ tcltest::test xvfs-basic-open-write "Xvfs Open For Writing Test" -setup {
 		file delete $rootDir/new-file
 	}
 } -match glob -returnCodes error -result "*read*only file*system*"
+
+tcltest::test xvfs-basic-open-directory "Xvfs Open Directory Test" -body {
+	unset -nocomplain fd
+	set fd [open $rootDir/lib]
+	set fd
+} -cleanup {
+	if {[info exists fd]} {
+		close $fd
+		unset fd
+	}
+} -match glob -returnCodes error -result "*illegal operation on a directory"
 
 tcltest::test xvfs-basic-two-files "Xvfs Multiple Open Files Test" -setup {
 	set fd1 [open $testFile]
@@ -190,6 +209,12 @@ tcltest::test xvfs-stat-basic-file "Xvfs stat Basic File Test" -body {
 } -cleanup {
 	unset -nocomplain fileInfo
 } -result file
+
+tcltest::test xvfs-stat-basic-file-neg "Xvfs stat Basic File Negative Test" -body {
+	file stat $rootDir/does-not-exist fileInfo
+} -cleanup {
+	unset -nocomplain fileInfo
+} -match glob -returnCodes error -result "*no such file or directory"
 
 tcltest::test xvfs-stat-basic-dir "Xvfs stat Basic Directory Test" -body {
 	file stat $rootDir/lib fileInfo

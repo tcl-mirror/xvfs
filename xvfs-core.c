@@ -172,6 +172,17 @@ static const char *xvfs_perror(int xvfs_error) {
 	}
 }
 
+static void xvfs_setresults_error(Tcl_Interp *interp, int xvfs_error) {
+	if (!interp) {
+		return;
+	}
+
+	Tcl_SetErrno(xvfs_errorToErrno(xvfs_error));
+	Tcl_SetResult(interp, (char *) xvfs_perror(xvfs_error), NULL);
+
+	return;
+}
+
 /*
  * Xvfs Memory Channel
  */
@@ -191,7 +202,7 @@ struct xvfs_tclfs_channel_event {
 };
 static Tcl_ChannelType xvfs_tclfs_channelType;
 
-static Tcl_Channel xvfs_tclfs_openChannel(Tcl_Obj *path, struct xvfs_tclfs_instance_info *instanceInfo) {
+static Tcl_Channel xvfs_tclfs_openChannel(Tcl_Interp *interp, Tcl_Obj *path, struct xvfs_tclfs_instance_info *instanceInfo) {
 	struct xvfs_tclfs_channel_id *channelInstanceData;
 	Tcl_Channel channel;
 	Tcl_StatBuf fileInfo;
@@ -204,6 +215,17 @@ static Tcl_Channel xvfs_tclfs_openChannel(Tcl_Obj *path, struct xvfs_tclfs_insta
 	statRet = instanceInfo->fsInfo->getStatProc(Tcl_GetString(path), &fileInfo);
 	if (statRet < 0) {
 		XVFS_DEBUG_PRINTF("... failed: %s", xvfs_perror(statRet));
+
+		xvfs_setresults_error(interp, XVFS_RV_ERR_ENOENT);
+
+		XVFS_DEBUG_LEAVE;
+		return(NULL);
+	}
+
+	if (fileInfo.st_mode & 040000) {
+		XVFS_DEBUG_PUTS("... failed (cannot open directories)");
+
+		xvfs_setresults_error(interp, XVFS_RV_ERR_EISDIR);
 
 		XVFS_DEBUG_LEAVE;
 		return(NULL);
@@ -577,10 +599,7 @@ static Tcl_Channel xvfs_tclfs_openFileChannel(Tcl_Interp *interp, Tcl_Obj *path,
 	if (mode & O_WRONLY) {
 		XVFS_DEBUG_PUTS("... failed (asked to open for writing)");
 
-		if (interp) {
-			Tcl_SetErrno(xvfs_errorToErrno(XVFS_RV_ERR_EROFS));
-			Tcl_SetResult(interp, (char *) Tcl_PosixError(interp), NULL);
-		}
+		xvfs_setresults_error(interp, XVFS_RV_ERR_EROFS);
 
 		XVFS_DEBUG_LEAVE;
 		return(NULL);
@@ -596,7 +615,7 @@ static Tcl_Channel xvfs_tclfs_openFileChannel(Tcl_Interp *interp, Tcl_Obj *path,
 
 	XVFS_DEBUG_PUTS("... done, passing off to channel handler");
 
-	retval = xvfs_tclfs_openChannel(pathRel, instanceInfo);
+	retval = xvfs_tclfs_openChannel(interp, pathRel, instanceInfo);
 
 	XVFS_DEBUG_LEAVE;
 	return(retval);
@@ -734,9 +753,7 @@ static int xvfs_tclfs_matchInDir(Tcl_Interp *interp, Tcl_Obj *resultPtr, Tcl_Obj
 
 		Tcl_DecrRefCount(path);
 
-		if (interp) {
-			Tcl_SetResult(interp, (char *) xvfs_perror(XVFS_RV_ERR_ENOENT), NULL);
-		}
+		xvfs_setresults_error(interp, XVFS_RV_ERR_ENOENT);
 
 		XVFS_DEBUG_LEAVE;
 		return(TCL_OK);
@@ -749,9 +766,7 @@ static int xvfs_tclfs_matchInDir(Tcl_Interp *interp, Tcl_Obj *resultPtr, Tcl_Obj
 
 		Tcl_DecrRefCount(path);
 
-		if (interp) {
-			Tcl_SetResult(interp, (char *) xvfs_perror(childrenCount), NULL);
-		}
+		xvfs_setresults_error(interp, childrenCount);
 
 		XVFS_DEBUG_LEAVE;
 		return(TCL_ERROR);
