@@ -1,6 +1,6 @@
-CPPFLAGS := -I. -DUSE_TCL_STUBS=1 -DXVFS_MODE_FLEXIBLE -DXVFS_DEBUG
-CFLAGS   := -fPIC -g3 -ggdb3 -Wall
-LDFLAGS  :=
+CPPFLAGS := -I. -DUSE_TCL_STUBS=1 -DXVFS_MODE_FLEXIBLE -DXVFS_DEBUG $(XVFS_ADD_CPPFLAGS)
+CFLAGS   := -fPIC -g3 -ggdb3 -Wall $(XVFS_ADD_CFLAGS)
+LDFLAGS  := $(XVFS_ADD_LDFLAGS)
 LIBS     := -ltclstub8.6
 TCLSH    := tclsh
 
@@ -30,12 +30,26 @@ test: example.so
 	$(GDB) $(TCLSH) __test__.tcl $(TCL_TEST_ARGS)
 	rm -f __test__.tcl
 
+coverage:
+	$(MAKE) clean
+	$(MAKE) example.so XVFS_ADD_CFLAGS=-coverage XVFS_ADD_LDFLAGS=-coverage
+	$(MAKE) test
+	rm -f xvfs-test-coverage.info
+	lcov --capture --directory . --output-file xvfs-test-coverage.info
+	rm -rf xvfs-test-coverage
+	mkdir xvfs-test-coverage
+	genhtml xvfs-test-coverage.info --output-directory xvfs-test-coverage
+	rm -f xvfs-test-coverage.info
+
 clean:
 	rm -f xvfs-create-standalone.new xvfs-create-standalone
 	rm -f example.c example.c.new
 	rm -f example.so example.o
+	rm -f example.gcda example.gcno
 	rm -f __test__.tcl
+	rm -f xvfs-test-coverage.info
+	rm -rf xvfs-test-coverage
 
 distclean: clean
 
-.PHONY: all clean distclean test
+.PHONY: all clean distclean test coverage
