@@ -1,4 +1,8 @@
+example.c.new
 example.c
 example.o
 example.so
 xvfs-core.o
+xvfs-create-standalone.new
+xvfs-create-standalone
+__test__.tcl
