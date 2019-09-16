@@ -2,6 +2,8 @@
 
 package require tcltest
 
+tcltest::testConstraint tcl87 [string match "8.7.*" [info patchlevel]]
+
 tcltest::configure -verbose pbse
 tcltest::configure {*}$argv
 
@@ -29,9 +31,7 @@ tcltest::customMatch boolean [list apply {{expected actual} {
 	}
 }}]
 
-tcltest::testConstraint tcl87 [string match "8.7.*" [info patchlevel]]
-
-tcltest::test xvfs-basic-seek "Xvfs Seek Test" -setup {
+tcltest::test xvfs-seek-basic "Xvfs Seek Test" -setup {
 	set fd [open $testFile]
 } -body {
 	seek $fd 0 end
@@ -42,6 +42,51 @@ tcltest::test xvfs-basic-seek "Xvfs Seek Test" -setup {
 	close $fd
 	unset fd
 } -result "\n"
+
+tcltest::test xvfs-seek-past-eof "Xvfs Seek Past EOF File Test" -setup {
+	set fd [open $testFile]
+} -body {
+	seek $fd 1 end
+} -cleanup {
+	close $fd
+	unset fd
+} -match glob -returnCodes error -result "*: invalid argument"
+
+tcltest::test xvfs-seek-past-eof "Xvfs Seek Past EOF File Test" -setup {
+	set fd [open $testFile]
+} -body {
+	seek $fd -10 current
+} -cleanup {
+	close $fd
+	unset fd
+} -match glob -returnCodes error -result "*: invalid argument"
+
+tcltest::test xvfs-seek-read-past-eof "Xvfs Seek Then Read Past EOF Test" -setup {
+	set fd [open $testFile]
+} -body {
+	seek $fd 0 end
+
+	read $fd 1
+	read $fd 1
+} -cleanup {
+	close $fd
+	unset fd
+} -result ""
+
+tcltest::test xvfs-basic-open-write "Xvfs Open For Writing Test" -setup {
+	unset -nocomplain fd
+} -body {
+	set fd [open $rootDir/new-file w]
+	close $fd
+} -cleanup {
+	if {[info exists fd]} {
+		close $fd
+		unset fd
+	}
+	catch {
+		file delete $rootDir/new-file
+	}
+} -match glob -returnCodes error -result "*read*only file*system*"
 
 tcltest::test xvfs-basic-two-files "Xvfs Multiple Open Files Test" -setup {
 	set fd1 [open $testFile]
@@ -83,8 +128,13 @@ tcltest::test xvfs-events "Xvfs Fileevent Test" -setup {
 	list [expr {$calls == ($size + 1)}] [expr {[lsort -integer $output] eq $output}]
 } -cleanup {
 	close $fd
+	update
 	unset -nocomplain fd size done calls output
 } -result {1 1}
+
+tcltest::test xvfs-match-almost-root-neg "Xvfs Match Almost Root" -body {
+	file exists ${rootDir}_DOES_NOT_EXIST
+} -match boolean -result false
 
 tcltest::test xvfs-glob-basic-any "Xvfs Glob Match Any Test" -body {
 	llength [glob_verify *]
@@ -117,6 +167,36 @@ tcltest::test xvfs-glob-basic-limited-prefixed-other-dir-1 "Xvfs Glob Match Dire
 tcltest::test xvfs-glob-basic-limited-prefixed-other-dir-2 "Xvfs Glob Match Directory Included in Search Test (Value)" -body {
 	lindex [glob_verify lib/*] 0
 } -match glob -result "$rootDir/*"
+
+tcltest::test xvfs-access-basic-read "Xvfs acccess Read Basic Test" -body {
+	file readable $testFile
+} -match boolean -result true
+
+tcltest::test xvfs-access-basic-write "Xvfs acccess Write Basic Test" -body {
+	file writable $testFile
+} -match boolean -result false
+
+tcltest::test xvfs-access-basic-neg "Xvfs acccess Basic Negative Test" -body {
+	file executable $testFile
+} -match boolean -result false
+
+tcltest::test xvfs-exists-basic-neg "Xvfs exists Basic Negative Test" -body {
+	file exists $rootDir/does-not-exist 
+} -match boolean -result false
+
+tcltest::test xvfs-stat-basic-file "Xvfs stat Basic File Test" -body {
+	file stat $testFile fileInfo
+	set fileInfo(type)
+} -cleanup {
+	unset -nocomplain fileInfo
+} -result file
+
+tcltest::test xvfs-stat-basic-dir "Xvfs stat Basic Directory Test" -body {
+	file stat $rootDir/lib fileInfo
+	set fileInfo(type)
+} -cleanup {
+	unset -nocomplain fileInfo
+} -result directory
 
 # Broken in Tcl 8.6 and earlier
 tcltest::test xvfs-glob-advanced-dir-with-pattern "Xvfs Glob Match Pattern and Directory Together" -body {
@@ -173,9 +253,15 @@ if {$::tcltest::numTests(Failed) != 0} {
 	]
 	puts [string repeat - [string length [format $format - - - -]]]
 
+	if {[info exists ::env(XVFS_TEST_EXIT_ON_FAILURE)]} {
+		exit $::env(XVFS_TEST_EXIT_ON_FAILURE)
+	}
 	exit 1
 }
 
 puts "ALL TESTS PASSED"
 
+if {[info exists ::env(XVFS_TEST_EXIT_ON_SUCCESS)]} {
+	exit $::env(XVFS_TEST_EXIT_ON_SUCCESS)
+}
 exit 0

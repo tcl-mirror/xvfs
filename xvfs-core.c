@@ -127,29 +127,6 @@ static const char *xvfs_relativePath(Tcl_Obj *path, struct xvfs_tclfs_instance_i
 	return(pathFinal);
 }
 
-static const char *xvfs_perror(int xvfs_error) {
-	if (xvfs_error >= 0) {
-		return("Not an error");
-	}
-
-	switch (xvfs_error) {
-		case XVFS_RV_ERR_ENOENT:
-			return("No such file or directory");
-		case XVFS_RV_ERR_EINVAL:
-			return("Invalid argument");
-		case XVFS_RV_ERR_EISDIR:
-			return("Is a directory");
-		case XVFS_RV_ERR_ENOTDIR:
-			return("Not a directory");
-		case XVFS_RV_ERR_EFAULT:
-			return("Bad address");
-		case XVFS_RV_ERR_INTERNAL:
-			return("Internal error");
-		default:
-			return("Unknown error");
-	}
-}
-
 static int xvfs_errorToErrno(int xvfs_error) {
 	if (xvfs_error >= 0) {
 		return(0);
@@ -166,10 +143,32 @@ static int xvfs_errorToErrno(int xvfs_error) {
 			return(ENOTDIR);
 		case XVFS_RV_ERR_EFAULT:
 			return(EFAULT);
+		case XVFS_RV_ERR_EROFS:
+			return(EROFS);
 		case XVFS_RV_ERR_INTERNAL:
 			return(EINVAL);
 		default:
 			return(ERANGE);
+	}
+}
+
+static const char *xvfs_perror(int xvfs_error) {
+	if (xvfs_error >= 0) {
+		return("Not an error");
+	}
+
+	switch (xvfs_error) {
+		case XVFS_RV_ERR_ENOENT:
+		case XVFS_RV_ERR_EINVAL:
+		case XVFS_RV_ERR_EISDIR:
+		case XVFS_RV_ERR_ENOTDIR:
+		case XVFS_RV_ERR_EFAULT:
+		case XVFS_RV_ERR_EROFS:
+			return(Tcl_ErrnoMsg(xvfs_errorToErrno(xvfs_error)));
+		case XVFS_RV_ERR_INTERNAL:
+			return("Internal error");
+		default:
+			return("Unknown error");
 	}
 }
 
@@ -576,7 +575,12 @@ static Tcl_Channel xvfs_tclfs_openFileChannel(Tcl_Interp *interp, Tcl_Obj *path,
 	XVFS_DEBUG_PRINTF("Asked to open(\"%s\", %x)...", Tcl_GetString(path), mode);
 
 	if (mode & O_WRONLY) {
-		XVFS_DEBUG_PUTS("... failed (asked to open for writing");
+		XVFS_DEBUG_PUTS("... failed (asked to open for writing)");
+
+		if (interp) {
+			Tcl_SetErrno(xvfs_errorToErrno(XVFS_RV_ERR_EROFS));
+			Tcl_SetResult(interp, (char *) Tcl_PosixError(interp), NULL);
+		}
 
 		XVFS_DEBUG_LEAVE;
 		return(NULL);

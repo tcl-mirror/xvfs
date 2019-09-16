@@ -33,7 +33,7 @@ test: example.so
 coverage:
 	$(MAKE) clean
 	$(MAKE) example.so XVFS_ADD_CFLAGS=-coverage XVFS_ADD_LDFLAGS=-coverage
-	$(MAKE) test
+	$(MAKE) test XVFS_TEST_EXIT_ON_FAILURE=0
 	rm -f xvfs-test-coverage.info
 	lcov --capture --directory . --output-file xvfs-test-coverage.info
 	rm -rf xvfs-test-coverage
