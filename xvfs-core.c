@@ -850,7 +850,7 @@ static int xvfs_tclfs_standalone_matchInDir(Tcl_Interp *interp, Tcl_Obj *resultP
  */
 static Tcl_Filesystem xvfs_tclfs_standalone_fs;
 static int xvfs_standalone_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
-	int tcl_ret;
+	int tclRet;
 	static int registered = 0;
 
 	/*
@@ -872,7 +872,7 @@ static int xvfs_standalone_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsIn
 		return(TCL_ERROR);
 	}
 
-	xvfs_tclfs_standalone_fs.typeName                   = "xvfs";
+	xvfs_tclfs_standalone_fs.typeName                   = "xvfsInstance";
 	xvfs_tclfs_standalone_fs.structureLength            = sizeof(xvfs_tclfs_standalone_fs);
 	xvfs_tclfs_standalone_fs.version                    = TCL_FILESYSTEM_VERSION_1;
 	xvfs_tclfs_standalone_fs.pathInFilesystemProc       = xvfs_tclfs_standalone_pathInFilesystem;
@@ -910,15 +910,15 @@ static int xvfs_standalone_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsIn
 	Tcl_IncrRefCount(xvfs_tclfs_standalone_info.mountpoint);
 	Tcl_AppendStringsToObj(xvfs_tclfs_standalone_info.mountpoint, XVFS_ROOT_MOUNTPOINT, fsInfo->name, NULL);
 	
-	tcl_ret = Tcl_FSRegister(NULL, &xvfs_tclfs_standalone_fs);
-	if (tcl_ret != TCL_OK) {
+	tclRet = Tcl_FSRegister(NULL, &xvfs_tclfs_standalone_fs);
+	if (tclRet != TCL_OK) {
 		Tcl_DecrRefCount(xvfs_tclfs_standalone_info.mountpoint);
 
 		if (interp) {
 			Tcl_SetResult(interp, "Tcl_FSRegister() failed", NULL);
 		}
 
-		return(tcl_ret);
+		return(tclRet);
 	}
 
 	xvfs_tclfs_prepareChannelType();
@@ -970,7 +970,221 @@ static int xvfs_flexible_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo
 #endif /* XVFS_MODE_FLEXIBLE */
 
 #if defined(XVFS_MODE_SERVER)
+static Tcl_Filesystem xvfs_tclfs_dispatch_fs;
+static Tcl_HashTable xvfs_tclfs_dispatch_map;
+
+static struct xvfs_tclfs_instance_info *xvfs_tclfs_dispatch_pathToInstanceInfo(Tcl_Obj *path) {
+	Tcl_HashEntry *mapEntry;
+	struct xvfs_tclfs_instance_info *retval;
+	const char *pathStr, *rootStr;
+	char *fsName, *fsNameEnds, origSep;
+	int pathLen, rootLen;
+
+	XVFS_DEBUG_ENTER;
+
+	XVFS_DEBUG_PRINTF("Looking up path \"%s\" ...", Tcl_GetString(path));
+	
+	rootStr = XVFS_ROOT_MOUNTPOINT;
+	rootLen = strlen(XVFS_ROOT_MOUNTPOINT);
+
+	pathStr = Tcl_GetStringFromObj(path, &pathLen);
+
+	if (pathLen < rootLen) {
+		XVFS_DEBUG_PUTS("... failed (length too short)");
+		XVFS_DEBUG_LEAVE;
+		return(NULL);
+	}
+
+	if (memcmp(pathStr, rootStr, rootLen) != 0) {
+		XVFS_DEBUG_PUTS("... failed (incorrect prefix)");
+		XVFS_DEBUG_LEAVE;
+		return(NULL);
+	}
+
+	fsName = ((char *) pathStr) + rootLen;
+
+	fsNameEnds = strchr(fsName, '/');
+	if (fsNameEnds) {
+		origSep = *fsNameEnds;
+		*fsNameEnds = '\0';
+	}
+
+	XVFS_DEBUG_PRINTF("... fsName = %s...", fsName);
+
+	mapEntry = Tcl_FindHashEntry(&xvfs_tclfs_dispatch_map, fsName);
+
+	if (fsNameEnds) {
+		*fsNameEnds = origSep;
+	}
+
+	if (mapEntry) {
+		retval = (struct xvfs_tclfs_instance_info *) Tcl_GetHashValue(mapEntry);
+		XVFS_DEBUG_PRINTF("... found a registered filesystem: %p", retval);
+	} else {
+		retval = NULL;
+		XVFS_DEBUG_PUTS("... found no registered filesystem.");
+	}
+
+	XVFS_DEBUG_LEAVE;
+	return(retval);
+}
+
+static int xvfs_tclfs_dispatch_pathInFilesystem(Tcl_Obj *path, ClientData *dataPtr) {
+	static struct xvfs_tclfs_instance_info *instanceInfo;
+
+	instanceInfo = xvfs_tclfs_dispatch_pathToInstanceInfo(path);
+	if (!instanceInfo) {
+		return(-1);
+	}
+
+	return(xvfs_tclfs_pathInFilesystem(path, dataPtr, instanceInfo));
+}
+
+static int xvfs_tclfs_dispatch_stat(Tcl_Obj *path, Tcl_StatBuf *statBuf) {
+	struct xvfs_tclfs_instance_info *instanceInfo;
+
+	instanceInfo = xvfs_tclfs_dispatch_pathToInstanceInfo(path);
+	if (!instanceInfo) {
+		return(0);
+	}
+
+	return(xvfs_tclfs_stat(path, statBuf, instanceInfo));
+}
+
+static int xvfs_tclfs_dispatch_access(Tcl_Obj *path, int mode) {
+	struct xvfs_tclfs_instance_info *instanceInfo;
+
+	instanceInfo = xvfs_tclfs_dispatch_pathToInstanceInfo(path);
+	if (!instanceInfo) {
+		return(-1);
+	}
+
+	return(xvfs_tclfs_access(path, mode, instanceInfo));
+}
+
+static Tcl_Channel xvfs_tclfs_dispatch_openFileChannel(Tcl_Interp *interp, Tcl_Obj *path, int mode, int permissions) {
+	struct xvfs_tclfs_instance_info *instanceInfo;
+
+	instanceInfo = xvfs_tclfs_dispatch_pathToInstanceInfo(path);
+	if (!instanceInfo) {
+		return(NULL);
+	}
+
+	return(xvfs_tclfs_openFileChannel(interp, path, mode, permissions, instanceInfo));
+}
+
+static int xvfs_tclfs_dispatch_matchInDir(Tcl_Interp *interp, Tcl_Obj *resultPtr, Tcl_Obj *pathPtr, const char *pattern, Tcl_GlobTypeData *types) {
+	struct xvfs_tclfs_instance_info *instanceInfo;
+
+	instanceInfo = xvfs_tclfs_dispatch_pathToInstanceInfo(pathPtr);
+	if (!instanceInfo) {
+		return(TCL_ERROR);
+	}
+
+	return(xvfs_tclfs_matchInDir(interp, resultPtr, pathPtr, pattern, types, instanceInfo));
+}
+
+static int xvfs_tclfs_dispatch_init(Tcl_Interp *interp) {
+	static int registered = 0;
+	int tclRet;
+
+	/* XXX:TODO: Make this thread-safe */
+	if (registered) {
+		return(TCL_OK);
+	}
+	registered = 1;
+
+	xvfs_tclfs_dispatch_fs.typeName                   = "xvfsDispatch";
+	xvfs_tclfs_dispatch_fs.structureLength            = sizeof(xvfs_tclfs_dispatch_fs);
+	xvfs_tclfs_dispatch_fs.version                    = TCL_FILESYSTEM_VERSION_1;
+	xvfs_tclfs_dispatch_fs.pathInFilesystemProc       = xvfs_tclfs_dispatch_pathInFilesystem;
+	xvfs_tclfs_dispatch_fs.dupInternalRepProc         = NULL;
+	xvfs_tclfs_dispatch_fs.freeInternalRepProc        = NULL;
+	xvfs_tclfs_dispatch_fs.internalToNormalizedProc   = NULL;
+	xvfs_tclfs_dispatch_fs.createInternalRepProc      = NULL;
+	xvfs_tclfs_dispatch_fs.normalizePathProc          = NULL;
+	xvfs_tclfs_dispatch_fs.filesystemPathTypeProc     = NULL;
+	xvfs_tclfs_dispatch_fs.filesystemSeparatorProc    = NULL;
+	xvfs_tclfs_dispatch_fs.statProc                   = xvfs_tclfs_dispatch_stat;
+	xvfs_tclfs_dispatch_fs.accessProc                 = xvfs_tclfs_dispatch_access;
+	xvfs_tclfs_dispatch_fs.openFileChannelProc        = xvfs_tclfs_dispatch_openFileChannel;
+	xvfs_tclfs_dispatch_fs.matchInDirectoryProc       = xvfs_tclfs_dispatch_matchInDir;
+	xvfs_tclfs_dispatch_fs.utimeProc                  = NULL;
+	xvfs_tclfs_dispatch_fs.linkProc                   = NULL;
+	xvfs_tclfs_dispatch_fs.listVolumesProc            = NULL;
+	xvfs_tclfs_dispatch_fs.fileAttrStringsProc        = NULL;
+	xvfs_tclfs_dispatch_fs.fileAttrsGetProc           = NULL;
+	xvfs_tclfs_dispatch_fs.fileAttrsSetProc           = NULL;
+	xvfs_tclfs_dispatch_fs.createDirectoryProc        = NULL;
+	xvfs_tclfs_dispatch_fs.removeDirectoryProc        = NULL;
+	xvfs_tclfs_dispatch_fs.deleteFileProc             = NULL;
+	xvfs_tclfs_dispatch_fs.copyFileProc               = NULL;
+	xvfs_tclfs_dispatch_fs.renameFileProc             = NULL;
+	xvfs_tclfs_dispatch_fs.copyDirectoryProc          = NULL;
+	xvfs_tclfs_dispatch_fs.lstatProc                  = NULL;
+	xvfs_tclfs_dispatch_fs.loadFileProc               = NULL;
+	xvfs_tclfs_dispatch_fs.getCwdProc                 = NULL;
+	xvfs_tclfs_dispatch_fs.chdirProc                  = NULL;
+
+	tclRet = Tcl_FSRegister(NULL, &xvfs_tclfs_dispatch_fs);
+	if (tclRet != TCL_OK) {
+		if (interp) {
+			Tcl_SetResult(interp, "Tcl_FSRegister() failed", NULL);
+		}
+
+		return(tclRet);
+	}
+
+	/*
+	 * Initialize the channel type we will use for I/O
+	 */
+	xvfs_tclfs_prepareChannelType();
+
+	/*
+	 * Initialize the map to lookup paths to registered
+	 * filesystems
+	 */
+	Tcl_InitHashTable(&xvfs_tclfs_dispatch_map, TCL_STRING_KEYS);
+
+	return(TCL_OK);
+}
+
 int Xvfs_Register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
-	return(TCL_ERROR);
+	Tcl_HashEntry *mapEntry;
+	struct xvfs_tclfs_instance_info *instanceInfo;
+	int dispatchInitRet;
+	int new;
+
+	dispatchInitRet = xvfs_tclfs_dispatch_init(interp);
+	if (dispatchInitRet != TCL_OK) {
+		return(dispatchInitRet);
+	}
+
+	/*
+	 * Verify this is for a protocol we support
+	 */
+	if (fsInfo->protocolVersion != XVFS_PROTOCOL_VERSION) {
+		if (interp) {
+			Tcl_SetResult(interp, "Protocol mismatch", NULL);
+		}
+		return(TCL_ERROR);
+	}
+
+	/*
+	 * Create the structure needed
+	 */
+	instanceInfo = (struct xvfs_tclfs_instance_info *) Tcl_Alloc(sizeof(*instanceInfo));
+	instanceInfo->fsInfo = fsInfo;
+	instanceInfo->mountpoint = Tcl_ObjPrintf("%s%s", XVFS_ROOT_MOUNTPOINT, fsInfo->name);
+	Tcl_IncrRefCount(instanceInfo->mountpoint);
+
+	/*
+	 * Register a hash table entry for this name
+	 */
+	new = 0;
+	mapEntry = Tcl_CreateHashEntry(&xvfs_tclfs_dispatch_map, fsInfo->name, &new);
+	Tcl_SetHashValue(mapEntry, instanceInfo);
+
+	return(TCL_OK);
 }
 #endif /* XVFS_MODE_SERVER */
