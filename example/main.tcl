@@ -159,6 +159,14 @@ tcltest::test xvfs-glob-basic-any "Xvfs Glob Match Any Test" -body {
 	llength [glob_verify *]
 } -result 3
 
+tcltest::test xvfs-glob-files-any "Xvfs Glob Match Any File Test" -body {
+	llength [glob_verify -type f *]
+} -result 2
+
+tcltest::test xvfs-glob-dir-any "Xvfs Glob On a File Test" -body {
+	glob -nocomplain -directory $testFile *
+} -returnCodes error -result "not a directory"
+
 tcltest::test xvfs-glob-basic-limited "Xvfs Glob Match Limited Test" -body {
 	llength [glob_verify f*]
 } -result 1
@@ -187,6 +195,26 @@ tcltest::test xvfs-glob-basic-limited-prefixed-other-dir-2 "Xvfs Glob Match Dire
 	lindex [glob_verify lib/*] 0
 } -match glob -result "$rootDir/*"
 
+tcltest::test xvfs-glob-no-dir "Xvfs Glob Non-Existant Directory Test" -body {
+	glob_verify libx/*
+} -returnCodes error -result "no such file or directory"
+
+tcltest::test xvfs-glob-pipes "Xvfs Glob Pipes Test " -body {
+	glob_verify -types {p b c s l} lib/*
+} -result ""
+
+tcltest::test xvfs-glob-writable "Xvfs Glob Writable Test " -body {
+	glob -nocomplain -directory $rootDir -types w *
+} -result ""
+
+tcltest::test xvfs-glob-hidden "Xvfs Glob Hidden Test " -body {
+	glob -nocomplain -directory $rootDir -types hidden *
+} -result ""
+
+tcltest::test xvfs-glob-executable "Xvfs Glob Executable Test " -body {
+	glob -nocomplain -directory $rootDir -types x *
+} -result $rootDir/lib
+
 tcltest::test xvfs-access-basic-read "Xvfs acccess Read Basic Test" -body {
 	file readable $testFile
 } -match boolean -result true
@@ -197,6 +225,10 @@ tcltest::test xvfs-access-basic-write "Xvfs acccess Write Basic Test" -body {
 
 tcltest::test xvfs-access-basic-neg "Xvfs acccess Basic Negative Test" -body {
 	file executable $testFile
+} -match boolean -result false
+
+tcltest::test xvfs-access-similar-neg "Xvfs acccess Similar Negative Test" -body {
+	file executable ${rootDir}_DOES_NOT_EXIST
 } -match boolean -result false
 
 tcltest::test xvfs-exists-basic-neg "Xvfs exists Basic Negative Test" -body {
