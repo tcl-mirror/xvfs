@@ -13,6 +13,26 @@ if {[lindex $argv 0] == "--dump-tcl"} {
 	set mode "dump-tcl"
 }
 
+proc remove_debug {input} {
+	set output [list]
+
+	set lastLine -
+	foreach line [split $input "\n"] {
+		if {[string match -nocase "*XVFS_DEBUG*" $line]} {
+			continue
+		}
+
+		if {$lastLine eq "" && $line eq ""} {
+			continue
+		}
+
+		set lastLine $line
+		lappend output $line
+	}
+
+	return [join $output "\n"]
+}
+
 switch -- $mode {
 	"run" {
 		::minirivet::parse $template
@@ -30,6 +50,10 @@ switch -- $mode {
 		set core_header_data ""
 		append core_header_data [string map $cleanup [read [open $xvfs_core_h]]] "\n"
 		append core_header_data [string map $cleanup [read [open $xvfs_core_c]]] "\n"
+
+		if {[lsearch -exact $argv "--remove-debug"] != -1} {
+			set core_header_data [remove_debug $core_header_data]
+		}
 
 		puts "#! /usr/bin/env tclsh"
 		puts ""

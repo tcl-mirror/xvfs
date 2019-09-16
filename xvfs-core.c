@@ -5,6 +5,20 @@
 #include <fcntl.h>
 #include <tcl.h>
 
+#ifdef XVFS_DEBUG
+#include <stdio.h> /* Needed for XVFS_DEBUG_PRINTF */
+static int xvfs_debug_depth = 0;
+#define XVFS_DEBUG_PRINTF(fmt, ...) fprintf(stderr, "[XVFS:DEBUG:%-30s:%4i] %s" fmt "\n", __func__, __LINE__, "                                                                                " + (80 - (xvfs_debug_depth * 4)), __VA_ARGS__)
+#define XVFS_DEBUG_PUTS(str) XVFS_DEBUG_PRINTF("%s", str);
+#define XVFS_DEBUG_ENTER { xvfs_debug_depth++; XVFS_DEBUG_PUTS("Entered"); }
+#define XVFS_DEBUG_LEAVE { XVFS_DEBUG_PUTS("Returning"); xvfs_debug_depth--; }
+#else /* XVFS_DEBUG */
+#define XVFS_DEBUG_PRINTF(fmt, ...) /**/
+#define XVFS_DEBUG_PUTS(str) /**/
+#define XVFS_DEBUG_ENTER /**/
+#define XVFS_DEBUG_LEAVE /**/
+#endif /* XVFS_DEBUG */
+
 #if defined(XVFS_MODE_FLEXIBLE) || defined(XVFS_MODE_SERVER)
 #define XVFS_INTERNAL_SERVER_MAGIC "\xD4\xF3\x05\x96\x25\xCF\xAF\xFE"
 #define XVFS_INTERNAL_SERVER_MAGIC_LEN 8
@@ -26,40 +40,69 @@ struct xvfs_tclfs_instance_info {
 /*
  * Internal Core Utilities
  */
-static const char *xvfs_relativePath(Tcl_Obj *path, struct xvfs_tclfs_instance_info *info) {
+static Tcl_Obj *xvfs_absolutePath(Tcl_Obj *path) {
 	Tcl_Obj *currentDirectory;
-	const char *pathStr, *rootStr;
-	const char *pathFinal;
-	int pathLen, rootLen;
+	const char *pathStr;
 
-	rootStr = Tcl_GetStringFromObj(info->mountpoint, &rootLen);
-	pathStr = Tcl_GetStringFromObj(path, &pathLen);
+	XVFS_DEBUG_ENTER;
+
+	pathStr = Tcl_GetString(path);
+
 	if (pathStr[0] != '/') {
 		currentDirectory = Tcl_FSGetCwd(NULL);
 		Tcl_IncrRefCount(currentDirectory);
 
-		/* XXX:TODO: Free this */
 		path = Tcl_ObjPrintf("%s/%s", Tcl_GetString(currentDirectory), pathStr);
 		Tcl_IncrRefCount(path);
 		Tcl_DecrRefCount(currentDirectory);
-
-		pathStr = Tcl_GetStringFromObj(path, &pathLen);
+	} else {
+		Tcl_IncrRefCount(path);
 	}
 
+	XVFS_DEBUG_PRINTF("Converted path \"%s\" to absolute path: \"%s\"", pathStr, Tcl_GetString(path));
+
+	XVFS_DEBUG_LEAVE;
+	return(path);
+}
+
+static const char *xvfs_relativePath(Tcl_Obj *path, struct xvfs_tclfs_instance_info *info) {
+	const char *pathStr, *rootStr;
+	const char *pathFinal;
+	int pathLen, rootLen;
+
+	XVFS_DEBUG_ENTER;
+
+	rootStr = Tcl_GetStringFromObj(info->mountpoint, &rootLen);
+	pathStr = Tcl_GetStringFromObj(path, &pathLen);
+
+	XVFS_DEBUG_PRINTF("Finding relative path of \"%s\" from \"%s\" ...", pathStr, rootStr);
+
 	if (pathLen < rootLen) {
+		XVFS_DEBUG_PUTS("... none possible (length)");
+
+		XVFS_DEBUG_LEAVE;
 		return(NULL);
 	}
 
 	if (memcmp(pathStr, rootStr, rootLen) != 0) {
+		XVFS_DEBUG_PUTS("... none possible (prefix differs)");
+
+		XVFS_DEBUG_LEAVE;
 		return(NULL);
 	}
 
 	if (pathLen == rootLen) {
+		XVFS_DEBUG_PUTS("... short circuit: \"\"");
+
+		XVFS_DEBUG_LEAVE;
 		return("");
 	}
 
 	/* XXX:TODO: Should this use the native OS path separator ? */
 	if (pathStr[rootLen] != '/') {
+		XVFS_DEBUG_PUTS("... none possible (no seperator)");
+
+		XVFS_DEBUG_LEAVE;
 		return(NULL);
 	}
 
@@ -67,6 +110,9 @@ static const char *xvfs_relativePath(Tcl_Obj *path, struct xvfs_tclfs_instance_i
 	pathLen  -= rootLen + 1;
 
 	if (pathLen == 1 && memcmp(pathFinal, ".", 1) == 0) {
+		XVFS_DEBUG_PUTS("... short circuit: \".\" -> \"\"");
+
+		XVFS_DEBUG_LEAVE;
 		return("");
 	}
 
@@ -75,6 +121,9 @@ static const char *xvfs_relativePath(Tcl_Obj *path, struct xvfs_tclfs_instance_i
 		pathLen   -= 2;
 	}
 
+	XVFS_DEBUG_PRINTF("... relative path: \"%s\"", pathFinal);
+
+	XVFS_DEBUG_LEAVE;
 	return(pathFinal);
 }
 
@@ -150,8 +199,14 @@ static Tcl_Channel xvfs_tclfs_openChannel(Tcl_Obj *path, struct xvfs_tclfs_insta
 	Tcl_Obj *channelName;
 	int statRet;
 
+	XVFS_DEBUG_ENTER;
+	XVFS_DEBUG_PRINTF("Opening file \"%s\" ...", Tcl_GetString(path));
+
 	statRet = instanceInfo->fsInfo->getStatProc(Tcl_GetString(path), &fileInfo);
 	if (statRet < 0) {
+		XVFS_DEBUG_PRINTF("... failed: %s", xvfs_perror(statRet));
+
+		XVFS_DEBUG_LEAVE;
 		return(NULL);
 	}
 
@@ -164,8 +219,11 @@ static Tcl_Channel xvfs_tclfs_openChannel(Tcl_Obj *path, struct xvfs_tclfs_insta
 
 	channelName = Tcl_ObjPrintf("xvfs0x%llx", (unsigned long long) channelInstanceData);
 	if (!channelName) {
+		XVFS_DEBUG_PUTS("... failed");
+
 		Tcl_Free((char *) channelInstanceData);
 
+		XVFS_DEBUG_LEAVE;
 		return(NULL);
 	}
 	Tcl_IncrRefCount(channelName);
@@ -178,14 +236,20 @@ static Tcl_Channel xvfs_tclfs_openChannel(Tcl_Obj *path, struct xvfs_tclfs_insta
 	channel = Tcl_CreateChannel(&xvfs_tclfs_channelType, Tcl_GetString(channelName), channelInstanceData, TCL_READABLE);
 	Tcl_DecrRefCount(channelName);
 	if (!channel) {
+		XVFS_DEBUG_PUTS("... failed");
+
 		Tcl_DecrRefCount(path);
 		Tcl_Free((char *) channelInstanceData);
 
+		XVFS_DEBUG_LEAVE;
 		return(NULL);
 	}
 
 	channelInstanceData->channel = channel;
 
+	XVFS_DEBUG_PRINTF("... ok (%p)", channelInstanceData);
+
+	XVFS_DEBUG_LEAVE;
 	return(channel);
 }
 
@@ -208,11 +272,16 @@ static int xvfs_tclfs_closeChannel(ClientData channelInstanceData_p, Tcl_Interp 
 	struct xvfs_tclfs_channel_id *channelInstanceData;
 	struct xvfs_tclfs_channel_event *event;
 
+	XVFS_DEBUG_ENTER;
+	XVFS_DEBUG_PRINTF("Closing channel %p ...", channelInstanceData_p);
+
 	channelInstanceData = (struct xvfs_tclfs_channel_id *) channelInstanceData_p;
 
 	channelInstanceData->closed = 1;
 
 	if (channelInstanceData->queuedEvents != 0) {
+		XVFS_DEBUG_PUTS("... queued");
+
 		event = (struct xvfs_tclfs_channel_event *) Tcl_Alloc(sizeof(*event));
 		event->tcl.proc = xvfs_tclfs_closeChannelEvent;
 		event->tcl.nextPtr = NULL;
@@ -222,12 +291,16 @@ static int xvfs_tclfs_closeChannel(ClientData channelInstanceData_p, Tcl_Interp 
 
 		Tcl_QueueEvent((Tcl_Event *) event, TCL_QUEUE_TAIL);
 
+		XVFS_DEBUG_LEAVE;
 		return(0);
 	}
 
 	Tcl_DecrRefCount(channelInstanceData->path);
 	Tcl_Free((char *) channelInstanceData);
 
+	XVFS_DEBUG_PUTS("... ok");
+
+	XVFS_DEBUG_LEAVE;
 	return(0);
 }
 
@@ -387,26 +460,52 @@ static void xvfs_tclfs_prepareChannelType(void) {
  */
 static int xvfs_tclfs_pathInFilesystem(Tcl_Obj *path, ClientData *dataPtr, struct xvfs_tclfs_instance_info *instanceInfo) {
 	const char *relativePath;
+	int retval;
+
+	XVFS_DEBUG_ENTER;
+
+	XVFS_DEBUG_PRINTF("Checking to see if path \"%s\" is in the filesystem ...", Tcl_GetString(path));
+
+	path = xvfs_absolutePath(path);
 
 	relativePath = xvfs_relativePath(path, instanceInfo);
+
+	retval = TCL_OK;
 	if (!relativePath) {
-		return(-1);
+		retval = -1;
 	}
 
-	return(TCL_OK);
+	Tcl_DecrRefCount(path);
+
+	XVFS_DEBUG_PRINTF("... %s", retval == -1 ? "no" : "yes");
+
+	XVFS_DEBUG_LEAVE;
+	return(retval);
 }
 
 static int xvfs_tclfs_stat(Tcl_Obj *path, Tcl_StatBuf *statBuf, struct xvfs_tclfs_instance_info *instanceInfo) {
 	const char *pathStr;
 	int retval;
 
+	XVFS_DEBUG_ENTER;
+
+	XVFS_DEBUG_PRINTF("Getting stat() on \"%s\" ...", Tcl_GetString(path));
+
+	path = xvfs_absolutePath(path);
+
 	pathStr = xvfs_relativePath(path, instanceInfo);
 
 	retval = instanceInfo->fsInfo->getStatProc(pathStr, statBuf);
 	if (retval < 0) {
+		XVFS_DEBUG_PRINTF("... failed: %s", xvfs_perror(retval));
 		retval = -1;
+	} else {
+		XVFS_DEBUG_PUTS("... ok");
 	}
 
+	Tcl_DecrRefCount(path);
+
+	XVFS_DEBUG_LEAVE;
 	return(retval);
 }
 
@@ -415,40 +514,88 @@ static int xvfs_tclfs_access(Tcl_Obj *path, int mode, struct xvfs_tclfs_instance
 	Tcl_StatBuf fileInfo;
 	int statRetVal;
 
-	pathStr = xvfs_relativePath(path, instanceInfo);
+	XVFS_DEBUG_ENTER;
+
+	XVFS_DEBUG_PRINTF("Getting access(..., %i) on \"%s\" ...", mode, Tcl_GetString(path));
 
 	if (mode & W_OK) {
+		XVFS_DEBUG_PUTS("... no (not writable)");
+
+		XVFS_DEBUG_LEAVE;
+		return(-1);
+	}
+
+	path = xvfs_absolutePath(path);
+
+	pathStr = xvfs_relativePath(path, instanceInfo);
+	if (!pathStr) {
+		XVFS_DEBUG_PUTS("... no (not in our path)");
+
+		Tcl_DecrRefCount(path);
+
+		XVFS_DEBUG_LEAVE;
 		return(-1);
 	}
 
 	statRetVal = instanceInfo->fsInfo->getStatProc(pathStr, &fileInfo);
 	if (statRetVal < 0) {
+		XVFS_DEBUG_PUTS("... no (not statable)");
+
+		Tcl_DecrRefCount(path);
+
+		XVFS_DEBUG_LEAVE;
 		return(-1);
 	}
 
 	if (mode & X_OK) {
 		if (!(fileInfo.st_mode & 040000)) {
+			XVFS_DEBUG_PUTS("... no (not a directory and X_OK specified)");
+
+			Tcl_DecrRefCount(path);
+
+			XVFS_DEBUG_LEAVE;
 			return(-1);
 		}
 	}
 
+	Tcl_DecrRefCount(path);
+
+	XVFS_DEBUG_PUTS("... ok");
+
+	XVFS_DEBUG_LEAVE;
 	return(0);
 }
 
-static Tcl_Obj *xvfs_tclfs_listVolumes(struct xvfs_tclfs_instance_info *instanceInfo) {
-	return(NULL);
-}
-
 static Tcl_Channel xvfs_tclfs_openFileChannel(Tcl_Interp *interp, Tcl_Obj *path, int mode, int permissions, struct xvfs_tclfs_instance_info *instanceInfo) {
+	Tcl_Channel retval;
+	Tcl_Obj *pathRel;
 	const char *pathStr;
 
-	pathStr = xvfs_relativePath(path, instanceInfo);
+	XVFS_DEBUG_ENTER;
+
+	XVFS_DEBUG_PRINTF("Asked to open(\"%s\", %x)...", Tcl_GetString(path), mode);
 
 	if (mode & O_WRONLY) {
+		XVFS_DEBUG_PUTS("... failed (asked to open for writing");
+
+		XVFS_DEBUG_LEAVE;
 		return(NULL);
 	}
 
-	return(xvfs_tclfs_openChannel(Tcl_NewStringObj(pathStr, -1), instanceInfo));
+	path = xvfs_absolutePath(path);
+
+	pathStr = xvfs_relativePath(path, instanceInfo);
+
+	pathRel = Tcl_NewStringObj(pathStr, -1);
+
+	Tcl_DecrRefCount(path);
+
+	XVFS_DEBUG_PUTS("... done, passing off to channel handler");
+
+	retval = xvfs_tclfs_openChannel(pathRel, instanceInfo);
+
+	XVFS_DEBUG_LEAVE;
+	return(retval);
 }
 
 static int xvfs_tclfs_verifyType(Tcl_Obj *path, Tcl_GlobTypeData *types, struct xvfs_tclfs_instance_info *instanceInfo) {
@@ -456,54 +603,99 @@ static int xvfs_tclfs_verifyType(Tcl_Obj *path, Tcl_GlobTypeData *types, struct 
 	Tcl_StatBuf fileInfo;
 	int statRetVal;
 
+	XVFS_DEBUG_ENTER;
+
+	if (types) {
+		XVFS_DEBUG_PRINTF("Asked to verify the existence and type of \"%s\" matches type=%i and perm=%i ...", Tcl_GetString(path), types->type, types->perm);
+	} else {
+		XVFS_DEBUG_PRINTF("Asked to verify the existence \"%s\" ...", Tcl_GetString(path));
+	}
+
 	statRetVal = xvfs_tclfs_stat(path, &fileInfo, instanceInfo);
 	if (statRetVal != 0) {
+		XVFS_DEBUG_PUTS("... no (cannot stat)");
+
+		XVFS_DEBUG_LEAVE;
 		return(0);
 	}
 
 	if (!types) {
+		XVFS_DEBUG_PUTS("... yes");
+
+		XVFS_DEBUG_LEAVE;
 		return(1);
 	}
 
 	if (types->perm != TCL_GLOB_PERM_RONLY) {
 		if (types->perm & (TCL_GLOB_PERM_W | TCL_GLOB_PERM_HIDDEN)) {
+			XVFS_DEBUG_PUTS("... no (checked for writable or hidden, not supported)");
+
+			XVFS_DEBUG_LEAVE;
 			return(0);
 		}
 
 		if ((types->perm & TCL_GLOB_PERM_X) == TCL_GLOB_PERM_X) {
 			if (!(fileInfo.st_mode & 040000)) {
+				XVFS_DEBUG_PUTS("... no (checked for executable but not a directory)");
+
+				XVFS_DEBUG_LEAVE;
 				return(0);
 			}
 		}
 	}
 
 	if (types->type & (TCL_GLOB_TYPE_BLOCK | TCL_GLOB_TYPE_CHAR | TCL_GLOB_TYPE_PIPE | TCL_GLOB_TYPE_SOCK | TCL_GLOB_TYPE_LINK)) {
+		XVFS_DEBUG_PUTS("... no (checked for block, char, pipe, sock, or link, not supported)");
+
+		XVFS_DEBUG_LEAVE;
 		return(0);
 	}
 
 	if ((types->type & TCL_GLOB_TYPE_DIR) == TCL_GLOB_TYPE_DIR) {
 		if (!(fileInfo.st_mode & 040000)) {
+			XVFS_DEBUG_PUTS("... no (checked for directory but not a directory)");
+
+			XVFS_DEBUG_LEAVE;
 			return(0);
 		}
 	}
 
 	if ((types->type & TCL_GLOB_TYPE_FILE) == TCL_GLOB_TYPE_FILE) {
 		if (!(fileInfo.st_mode & 0100000)) {
+			XVFS_DEBUG_PUTS("... no (checked for file but not a file)");
+
+			XVFS_DEBUG_LEAVE;
 			return(0);
 		}
 	}
 
 	if ((types->type & TCL_GLOB_TYPE_MOUNT) == TCL_GLOB_TYPE_MOUNT) {
+		path = xvfs_absolutePath(path);
 		pathStr = xvfs_relativePath(path, instanceInfo);
 		if (!pathStr) {
+			XVFS_DEBUG_PUTS("... no (checked for mount but not able to resolve path)");
+
+			Tcl_DecrRefCount(path);
+
+			XVFS_DEBUG_LEAVE;
 			return(0);
 		}
 
 		if (strlen(pathStr) != 0) {
+			XVFS_DEBUG_PUTS("... no (checked for mount but not our top-level directory)");
+
+			Tcl_DecrRefCount(path);
+
+			XVFS_DEBUG_LEAVE;
 			return(0);
 		}
+
+		Tcl_DecrRefCount(path);
 	}
 
+	XVFS_DEBUG_PUTS("... yes");
+
+	XVFS_DEBUG_LEAVE;
 	return(1);
 }
 
@@ -522,22 +714,42 @@ static int xvfs_tclfs_matchInDir(Tcl_Interp *interp, Tcl_Obj *resultPtr, Tcl_Obj
 		return(TCL_ERROR);
 	}
 
+	XVFS_DEBUG_ENTER;
+
+	path = xvfs_absolutePath(path);
+
+	if (types) {
+		XVFS_DEBUG_PRINTF("Checking for files matching %s in \"%s\" and type=%i and perm=%i ...", pattern, Tcl_GetString(path), types->type, types->perm);
+	} else {
+		XVFS_DEBUG_PRINTF("Checking for files matching %s in \"%s\" ...", pattern, Tcl_GetString(path));
+	}
+
 	pathStr = xvfs_relativePath(path, instanceInfo);
 	if (!pathStr) {
+		XVFS_DEBUG_PUTS("... error (not in our VFS)");
+
+		Tcl_DecrRefCount(path);
+
 		if (interp) {
 			Tcl_SetResult(interp, (char *) xvfs_perror(XVFS_RV_ERR_ENOENT), NULL);
 		}
 
-		return(TCL_ERROR);
+		XVFS_DEBUG_LEAVE;
+		return(TCL_OK);
 	}
 
 	childrenCount = 0;
 	children = instanceInfo->fsInfo->getChildrenProc(pathStr, &childrenCount);
 	if (childrenCount < 0) {
+		XVFS_DEBUG_PRINTF("... error: %s", xvfs_perror(childrenCount));
+
+		Tcl_DecrRefCount(path);
+
 		if (interp) {
 			Tcl_SetResult(interp, (char *) xvfs_perror(childrenCount), NULL);
 		}
 
+		XVFS_DEBUG_LEAVE;
 		return(TCL_ERROR);
 	}
 
@@ -562,10 +774,19 @@ static int xvfs_tclfs_matchInDir(Tcl_Interp *interp, Tcl_Obj *resultPtr, Tcl_Obj
 		Tcl_DecrRefCount(childObj);
 
 		if (tclRetVal != TCL_OK) {
+			XVFS_DEBUG_PUTS("... error (lappend)");
+			Tcl_DecrRefCount(path);
+
+			XVFS_DEBUG_LEAVE;
 			return(tclRetVal);
 		}
 	}
 
+	Tcl_DecrRefCount(path);
+
+	XVFS_DEBUG_PRINTF("... ok (returning items: %s)", Tcl_GetString(resultPtr));
+
+	XVFS_DEBUG_LEAVE;
 	return(TCL_OK);
 }
 #endif /* XVFS_MODE_SERVER || XVFS_MODE_STANDALONE || XVFS_MODE_FLEIXBLE */
@@ -585,10 +806,6 @@ static int xvfs_tclfs_standalone_stat(Tcl_Obj *path, Tcl_StatBuf *statBuf) {
 
 static int xvfs_tclfs_standalone_access(Tcl_Obj *path, int mode) {
 	return(xvfs_tclfs_access(path, mode, &xvfs_tclfs_standalone_info));
-}
-
-static Tcl_Obj *xvfs_tclfs_standalone_listVolumes(void) {
-	return(xvfs_tclfs_listVolumes(&xvfs_tclfs_standalone_info));
 }
 
 static Tcl_Channel xvfs_tclfs_standalone_openFileChannel(Tcl_Interp *interp, Tcl_Obj *path, int mode, int permissions) {
@@ -653,7 +870,7 @@ static int xvfs_standalone_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsIn
 	xvfs_tclfs_standalone_fs.matchInDirectoryProc       = xvfs_tclfs_standalone_matchInDir;
 	xvfs_tclfs_standalone_fs.utimeProc                  = NULL;
 	xvfs_tclfs_standalone_fs.linkProc                   = NULL;
-	xvfs_tclfs_standalone_fs.listVolumesProc            = xvfs_tclfs_standalone_listVolumes;
+	xvfs_tclfs_standalone_fs.listVolumesProc            = NULL;
 	xvfs_tclfs_standalone_fs.fileAttrStringsProc        = NULL;
 	xvfs_tclfs_standalone_fs.fileAttrsGetProc           = NULL;
 	xvfs_tclfs_standalone_fs.fileAttrsSetProc           = NULL;
