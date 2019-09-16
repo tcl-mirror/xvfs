@@ -135,7 +135,7 @@ tcltest::test xvfs-cwd-1 "Xvfs Can Be cwd" -setup {
 } -cleanup {
 	cd $startDir
 	unset startDir
-} -result $rootDir
+} -constraints tcl87 -result $rootDir
 
 tcltest::test xvfs-cwd-2 "Xvfs Can Be cwd" -setup {
 	set startDir [pwd]
@@ -146,7 +146,7 @@ tcltest::test xvfs-cwd-2 "Xvfs Can Be cwd" -setup {
 } -cleanup {
 	cd $startDir
 	unset startDir
-} -result "hello"
+} -constraints tcl87 -result "hello"
 
 # Currently broken
 tcltest::test xvfs-package "Xvfs Can Be Package Directory" -setup {
