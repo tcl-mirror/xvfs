@@ -1,60 +1,18 @@
-set dir  "//xvfs:/example"
-set dirNative  [file join [pwd] example]
-#set dir $dirNative
-set file "${dir}/foo"
+#! /usr/bin/env tclsh
 
-set fd [open $file]
-seek $fd 0 end
-seek $fd -1 current
-set check [read $fd 1]
-if {$check != "\n"} {
-	error "EXPECTED: (new line); GOT: [binary encode hex $check]"
-}
-close $fd
+package require tcltest
 
-set fd1 [open $file]
-set fd2 [open $file]
-set data1 [read $fd1]
-close $fd1
-set data2 [read $fd2]
-close $fd2
-if {$data1 != $data2} {
-	error "EXPECTED match, differs"
-}
+tcltest::configure -verbose pbse
+tcltest::configure {*}$argv
 
-set fd [open $file]
-seek $fd 0 end
-set size [tell $fd]
-close $fd
-set fd [open $file]
-set done false
-set calls 0
-set output ""
-fileevent $fd readable [list apply {{fd} {
-	set pos [tell $fd]
-	set x [read $fd 1]
-	if {[string length $x] == 0} {
-		set ::done true
-		fileevent $fd readable ""
-	}
-
-	lappend ::output $pos
-	incr ::calls
-}} $fd]
-vwait done
-if {$calls != ($size + 1)} {
-	error "EXPECTED [expr {$size + 1}], got $calls"
-}
-if {[lsort -integer $output] != $output} {
-	error "EXPECTED [lsort -integer $output], GOT $output"
-}
-close $fd
-update idle
-
+set rootDir "//xvfs:/example"
+set rootDirNative  [file join [pwd] example]
+#set rootDir $rootDirNative
+set testFile "${rootDir}/foo"
 
 proc glob_verify {args} {
-	set rv [glob -nocomplain -directory $::dir {*}$args]
-	set verify [glob -nocomplain -directory $::dirNative {*}$args]
+	set rv [glob -nocomplain -directory $::rootDir {*}$args]
+	set verify [glob -nocomplain -directory $::rootDirNative {*}$args]
 
 	if {[llength $rv] != [llength $verify]} {
 		error "VERIFY FAILED: glob ... $args ($rv versus $verify)"
@@ -63,65 +21,161 @@ proc glob_verify {args} {
 	return $rv
 }
 
-set check [glob_verify *]
-if {[llength $check] < 2} {
-	error "EXPECTED >=2, GOT [llength $check] ($check)"
-}
+tcltest::customMatch boolean [list apply {{expected actual} {
+	if {!!$expected == !!$actual} {
+		return true
+	} else {
+		return false
+	}
+}}]
 
-set check [glob_verify f*]
-if {[llength $check] != 1} {
-	error "EXPECTED 1, GOT [llength $check] ($check)"
-}
+tcltest::testConstraint tcl87 [string match "8.7.*" [info patchlevel]]
 
-set check [glob_verify ./f*]
-if {[llength $check] != 1} {
-	error "EXPECTED 1, GOT [llength $check] ($check)"
-}
+tcltest::test xvfs-basic-seek "Xvfs Seek Test" -setup {
+	set fd [open $testFile]
+} -body {
+	seek $fd 0 end
+	seek $fd -1 current
 
-set check [glob_verify -type f ./f*]
-if {[llength $check] != 1} {
-	error "EXPECTED 1, GOT [llength $check] ($check)"
-}
+	read $fd 1
+} -cleanup {
+	close $fd
+	unset fd
+} -result "\n"
 
-set check [glob_verify -type d ./f*]
-if {[llength $check] != 0} {
-	error "EXPECTED 0, GOT [llength $check] ($check)"
-}
+tcltest::test xvfs-basic-two-files "Xvfs Multiple Open Files Test" -setup {
+	set fd1 [open $testFile]
+	set fd2 [open $testFile]
+} -body {
+	set data1 [read $fd1]
+	close $fd1
+	set data2 [read $fd2]
+	close $fd2
 
-set check [glob_verify x*]
-if {[llength $check] != 0} {
-	error "EXPECTED 0, GOT [llength $check] ($check)"
-}
+	expr {$data1 eq $data2}
+} -cleanup {
+	unset -nocomplain fd1 fd2 data1 data2
+} -match boolean -result true
 
-set check [glob_verify lib/*]
-if {[llength $check] != 1} {
-	error "EXPECTED 1, GOT [llength $check] ($check)"
-}
+tcltest::test xvfs-events "Xvfs Fileevent Test" -setup {
+	set fd [open $testFile]
+	seek $fd 0 end
+	set size [tell $fd]
+	seek $fd 0 start
 
-set check [lindex $check 0]
-if {![string match $dir/* $check]} {
-	error "EXPECTED \"$dir/*\", GOT $check"
-}
+	set done false
+	set calls 0
+	set output ""
+} -body {
+	fileevent $fd readable [list apply {{fd} {
+		set pos [tell $fd]
+		set x [read $fd 1]
+		if {[string length $x] == 0} {
+			set ::done true
+			fileevent $fd readable ""
+		}
 
-set check [glob_verify -type d *]
-if {[llength $check] != 1} {
-	error "EXPECTED 1, GOT [llength $check] ($check)"
-}
+		lappend ::output $pos
+		incr ::calls
+	}} $fd]
+	vwait done
 
-set check [glob_verify -type d lib/*]
-if {[llength $check] != 1} {
-	error "EXPECTED 1, GOT [llength $check] ($check)"
-}
+	list [expr {$calls == ($size + 1)}] [expr {[lsort -integer $output] eq $output}]
+} -cleanup {
+	close $fd
+	unset -nocomplain fd size done calls output
+} -result {1 1}
 
-cd $dir
-cd lib
-glob *
+tcltest::test xvfs-glob-basic-any "Xvfs Glob Match Any Test" -body {
+	llength [glob_verify *]
+} -result 3
 
+tcltest::test xvfs-glob-basic-limited "Xvfs Glob Match Limited Test" -body {
+	llength [glob_verify f*]
+} -result 1
 
-# XXX:TODO:CURRENTLY BROKEN
-if {0} {
-lappend auto_path ${dir}/lib
-package require hello
+tcltest::test xvfs-glob-basic-limited-neg "Xvfs Glob Match Limited Negative Test" -body {
+	llength [glob_verify x*]
+} -result 0
+
+tcltest::test xvfs-glob-basic-limited-prefixed "Xvfs Glob Match Limited But With Directory Prefix Test" -body {
+	llength [glob_verify ./f*]
+} -result 1
+
+tcltest::test xvfs-glob-basic-limited-and-typed-prefixed "Xvfs Glob Match Limited Path and Type Positive Test" -body {
+	llength [glob_verify -type f ./f*]
+} -result 1
+
+tcltest::test xvfs-glob-basic-limited-and-typed-prefixed-neg "Xvfs Glob Match Limited Path and Type Negative Test" -body {
+	llength [glob_verify -type d ./f*]
+} -result 0
+
+tcltest::test xvfs-glob-basic-limited-prefixed-other-dir-1 "Xvfs Glob Match Directory Included in Search Test (Count)" -body {
+	llength [glob_verify lib/*]
+} -result 1
+
+tcltest::test xvfs-glob-basic-limited-prefixed-other-dir-2 "Xvfs Glob Match Directory Included in Search Test (Value)" -body {
+	lindex [glob_verify lib/*] 0
+} -match glob -result "$rootDir/*"
+
+# Broken in Tcl 8.6 and earlier
+tcltest::test xvfs-glob-advanced-dir-with-pattern "Xvfs Glob Match Pattern and Directory Together" -body {
+	llength [glob //xvfs:/example/*]
+} -constraints tcl87 -result 3
+
+tcltest::test xvfs-glob-file-dirname "Xvfs Relies on file dirname" -body {
+	lindex [glob -directory [file dirname $testFile] *] 0
+} -constraints tcl87 -match glob -result "$rootDir/*"
+
+tcltest::test xvfs-cwd-1 "Xvfs Can Be cwd" -setup {
+	set startDir [pwd]
+} -body {
+	cd $rootDir
+	pwd
+} -cleanup {
+	cd $startDir
+	unset startDir
+} -result $rootDir
+
+tcltest::test xvfs-cwd-2 "Xvfs Can Be cwd" -setup {
+	set startDir [pwd]
+} -body {
+	cd $rootDir
+	cd lib
+	lindex [glob *] 0
+} -cleanup {
+	cd $startDir
+	unset startDir
+} -result "hello"
+
+# Currently broken
+tcltest::test xvfs-package "Xvfs Can Be Package Directory" -setup {
+	set startAutoPath $auto_path
+	lappend auto_path ${rootDir}/lib
+} -body {
+	package require hello
+	set auto_path
+} -cleanup {
+	set auto_path $startAutoPath
+	unset startAutoPath
+} -constraints knownBug -result ""
+
+# Output results
+if {$::tcltest::numTests(Failed) != 0} {
+	set format "| %20s | %20s | %20s | %20s |"
+	puts [string repeat - [string length [format $format - - - -]]]
+	puts [format $format "Passed" "Failed" "Skipped" "Total"]
+	puts [format $format \
+		$::tcltest::numTests(Passed) \
+		$::tcltest::numTests(Failed) \
+		$::tcltest::numTests(Skipped) \
+		$::tcltest::numTests(Total) \
+	]
+	puts [string repeat - [string length [format $format - - - -]]]
+
+	exit 1
 }
 
 puts "ALL TESTS PASSED"
+
+exit 0
