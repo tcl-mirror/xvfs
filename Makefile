@@ -75,7 +75,10 @@ clean:
 	rm -f example-client.o example-client$(LIB_SUFFIX)
 	rm -f example-flexible.o example-flexible$(LIB_SUFFIX)
 	rm -f xvfs.o xvfs$(LIB_SUFFIX)
-	rm -f example.gcda example.gcno
+	rm -f example-standalone.gcda example-standalone.gcno
+	rm -f example-client.gcda example-client.gcno
+	rm -f example-flexible.gcda example-flexible.gcno
+	rm -f xvfs.gcda xvfs.gcno
 	rm -f __test__.tcl
 	rm -f xvfs-test-coverage.info
 	rm -rf xvfs-test-coverage
