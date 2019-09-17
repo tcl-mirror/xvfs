@@ -988,7 +988,7 @@ static Tcl_Filesystem xvfs_tclfs_dispatch_fs;
 static Tcl_HashTable xvfs_tclfs_dispatch_map;
 static struct xvfs_tclfs_server_info xvfs_tclfs_dispatch_fsdata;
 
-static int xvfs_tclfs_dispatch_pathInFilesystem(Tcl_Obj *path, ClientData *dataPtr) {
+static int xvfs_tclfs_dispatch_pathInFS(Tcl_Obj *path, ClientData *dataPtr) {
 	const char *pathStr, *rootStr;
 	int pathLen, rootLen;
 
@@ -1028,7 +1028,7 @@ static struct xvfs_tclfs_instance_info *xvfs_tclfs_dispatch_pathToInfo(Tcl_Obj *
 
 	XVFS_DEBUG_ENTER;
 
-	if (xvfs_tclfs_dispatch_pathInFilesystem(path, NULL) != TCL_OK) {
+	if (xvfs_tclfs_dispatch_pathInFS(path, NULL) != TCL_OK) {
 		XVFS_DEBUG_LEAVE;
 
 		return(NULL);
@@ -1115,6 +1115,15 @@ int Xvfs_Init(Tcl_Interp *interp) {
 	static int registered = 0;
 	int tclRet;
 
+#ifdef USE_TCL_STUBS
+	const char *tclInitStubs_ret;
+	/* Initialize Stubs */
+	tclInitStubs_ret = Tcl_InitStubs(interp, TCL_PATCH_LEVEL, 0);
+	if (!tclInitStubs_ret) {
+		return(TCL_ERROR);
+	}
+#endif
+
 	/* XXX:TODO: Make this thread-safe */
 	if (registered) {
 		return(TCL_OK);
@@ -1124,7 +1133,7 @@ int Xvfs_Init(Tcl_Interp *interp) {
 	xvfs_tclfs_dispatch_fs.typeName                   = "xvfsDispatch";
 	xvfs_tclfs_dispatch_fs.structureLength            = sizeof(xvfs_tclfs_dispatch_fs);
 	xvfs_tclfs_dispatch_fs.version                    = TCL_FILESYSTEM_VERSION_1;
-	xvfs_tclfs_dispatch_fs.pathInFilesystemProc       = xvfs_tclfs_dispatch_pathInFilesystem;
+	xvfs_tclfs_dispatch_fs.pathInFilesystemProc       = xvfs_tclfs_dispatch_pathInFS;
 	xvfs_tclfs_dispatch_fs.dupInternalRepProc         = NULL;
 	xvfs_tclfs_dispatch_fs.freeInternalRepProc        = NULL;
 	xvfs_tclfs_dispatch_fs.internalToNormalizedProc   = NULL;

@@ -2,6 +2,10 @@ example.c.new
 example.c
 example.o
 example.so
+example-client.o
+example-client.so
+example-server.o
+example-server.so
 xvfs-core.o
 xvfs-create-standalone.new
 xvfs-create-standalone
