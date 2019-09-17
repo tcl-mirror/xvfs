@@ -23,6 +23,24 @@ proc glob_verify {args} {
 	return $rv
 }
 
+proc test_summary {} {
+	set format "| %7s | %7s | %7s | %7s |"
+	set emptyRow [format $format "" "" "" ""]
+	set emptyRowLength [string length $emptyRow]
+	lappend output "/[string repeat - [expr {$emptyRowLength - 2}]]\\"
+	lappend output [format $format "Passed" "Failed" "Skipped" "Total"]
+	lappend output [regsub -all -- " " [regsub -all -- " \\| " $emptyRow " + "] "-"]
+	lappend output [format $format \
+		$::tcltest::numTests(Passed) \
+		$::tcltest::numTests(Failed) \
+		$::tcltest::numTests(Skipped) \
+		$::tcltest::numTests(Total) \
+	]
+	lappend output "\\[string repeat - [expr {$emptyRowLength - 2}]]/"
+
+	return [join $output "\n"]
+}
+
 tcltest::customMatch boolean [list apply {{expected actual} {
 	if {!!$expected == !!$actual} {
 		return true
@@ -299,23 +317,14 @@ tcltest::test xvfs-package "Xvfs Can Be Package Directory" -setup {
 
 # Output results
 if {$::tcltest::numTests(Failed) != 0} {
-	set format "| %20s | %20s | %20s | %20s |"
-	puts [string repeat - [string length [format $format - - - -]]]
-	puts [format $format "Passed" "Failed" "Skipped" "Total"]
-	puts [format $format \
-		$::tcltest::numTests(Passed) \
-		$::tcltest::numTests(Failed) \
-		$::tcltest::numTests(Skipped) \
-		$::tcltest::numTests(Total) \
-	]
-	puts [string repeat - [string length [format $format - - - -]]]
-
+	puts [test_summary]
 	if {[info exists ::env(XVFS_TEST_EXIT_ON_FAILURE)]} {
 		exit $::env(XVFS_TEST_EXIT_ON_FAILURE)
 	}
 	exit 1
 }
 
+puts [test_summary]
 puts "ALL TESTS PASSED"
 
 if {[info exists ::env(XVFS_TEST_EXIT_ON_SUCCESS)]} {
