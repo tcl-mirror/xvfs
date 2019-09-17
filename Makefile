@@ -4,7 +4,7 @@ LDFLAGS  := $(XVFS_ADD_LDFLAGS)
 LIBS     := -ltclstub8.6
 TCLSH    := tclsh
 
-all: example.so example-client.so example-server.so
+all: example.so example-client.so xvfs.so
 
 example.c: $(shell find example -type f) $(shell find lib -type f) xvfs.c.rvt xvfs-create Makefile
 	./xvfs-create --directory example --name example > example.c.new
@@ -22,11 +22,11 @@ example-client.o: example.c xvfs-core.h Makefile
 example-client.so: example-client.o Makefile
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o example-client.so example-client.o $(LIBS)
 
-example-server.o: xvfs-core.h xvfs-core.c Makefile
-	$(CC) $(CPPFLAGS) -DXVFS_MODE_SERVER $(CFLAGS) -o example-server.o -c xvfs-core.c
+xvfs.o: xvfs-core.h xvfs-core.c Makefile
+	$(CC) $(CPPFLAGS) -DXVFS_MODE_SERVER $(CFLAGS) -o xvfs.o -c xvfs-core.c
 
-example-server.so: example-server.o Makefile
-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o example-server.so example-server.o $(LIBS)
+xvfs.so: xvfs.o Makefile
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o xvfs.so xvfs.o $(LIBS)
 
 # xvfs-create-standalone is a standalone (i.e., no external dependencies
 # like lib/minirivet, xvfs-core.c, etc) version of "xvfs-create"
@@ -36,12 +36,12 @@ xvfs-create-standalone: $(shell find lib -type f) xvfs-create xvfs-core.c xvfs-c
 	chmod +x xvfs-create-standalone.new
 	mv xvfs-create-standalone.new xvfs-create-standalone
 
-test: example.so example-server.so example-client.so Makefile
+test: example.so xvfs.so example-client.so Makefile
 	rm -f __test__.tcl
 	echo 'if {[catch { load ./example.so Xvfs_example; source //xvfs:/example/main.tcl }]} { puts stderr $$::errorInfo; exit 1 }; exit 0' > __test__.tcl
 	$(GDB) $(TCLSH) __test__.tcl $(TCL_TEST_ARGS)
 	rm -f __test__.tcl
-	echo 'if {[catch { load ./example-server.so Xvfs; load ./example-client.so Xvfs_example; source //xvfs:/example/main.tcl }]} { puts stderr $$::errorInfo; exit 1 }; exit 0' > __test__.tcl
+	echo 'if {[catch { load ./xvfs.so; load ./example-client.so Xvfs_example; source //xvfs:/example/main.tcl }]} { puts stderr $$::errorInfo; exit 1 }; exit 0' > __test__.tcl
 	$(GDB) $(TCLSH) __test__.tcl $(TCL_TEST_ARGS)
 	rm -f __test__.tcl
 
@@ -60,8 +60,8 @@ clean:
 	rm -f xvfs-create-standalone.new xvfs-create-standalone
 	rm -f example.c example.c.new
 	rm -f example.so example.o
-	rm -f example-client.o example-server.o
-	rm -f example-client.so example-server.so
+	rm -f example-client.o example-client.so
+	rm -f xvfs.o xvfs.so
 	rm -f example.gcda example.gcno
 	rm -f __test__.tcl
 	rm -f xvfs-test-coverage.info

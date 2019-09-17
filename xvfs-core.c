@@ -1115,14 +1115,8 @@ static int xvfs_tclfs_dispatch_matchInDir(Tcl_Interp *interp, Tcl_Obj *resultPtr
 int Xvfs_Init(Tcl_Interp *interp) {
 	static int registered = 0;
 	int tclRet;
-
 #ifdef USE_TCL_STUBS
 	const char *tclInitStubs_ret;
-	/* Initialize Stubs */
-	tclInitStubs_ret = Tcl_InitStubs(interp, TCL_PATCH_LEVEL, 0);
-	if (!tclInitStubs_ret) {
-		return(TCL_ERROR);
-	}
 #endif
 
 	/* XXX:TODO: Make this thread-safe */
@@ -1130,6 +1124,14 @@ int Xvfs_Init(Tcl_Interp *interp) {
 		return(TCL_OK);
 	}
 	registered = 1;
+
+#ifdef USE_TCL_STUBS
+	/* Initialize Stubs */
+	tclInitStubs_ret = Tcl_InitStubs(interp, TCL_PATCH_LEVEL, 0);
+	if (!tclInitStubs_ret) {
+		return(TCL_ERROR);
+	}
+#endif
 
 	xvfs_tclfs_dispatch_fs.typeName                   = "xvfsDispatch";
 	xvfs_tclfs_dispatch_fs.structureLength            = sizeof(xvfs_tclfs_dispatch_fs);
