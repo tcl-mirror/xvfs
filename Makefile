@@ -59,7 +59,7 @@ test: example-standalone$(LIB_SUFFIX) xvfs$(LIB_SUFFIX) example-client$(LIB_SUFF
 
 coverage:
 	$(MAKE) clean
-	$(MAKE) example$(LIB_SUFFIX) XVFS_ADD_CFLAGS=-coverage XVFS_ADD_LDFLAGS=-coverage
+	$(MAKE) XVFS_ADD_CFLAGS=-coverage XVFS_ADD_LDFLAGS=-coverage
 	$(MAKE) test XVFS_TEST_EXIT_ON_FAILURE=0
 	rm -f xvfs-test-coverage.info
 	lcov --capture --directory . --output-file xvfs-test-coverage.info
