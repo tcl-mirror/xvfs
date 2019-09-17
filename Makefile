@@ -6,17 +6,17 @@ LIBS          := $(shell . "${TCL_CONFIG_SH}" && echo "$${TCL_STUB_LIB_SPEC}")
 TCLSH         := tclsh
 LIB_SUFFIX    := $(shell . "${TCL_CONFIG_SH}"; echo "$${TCL_SHLIB_SUFFIX:-.so}")
 
-all: example$(LIB_SUFFIX) example-client$(LIB_SUFFIX) example-flexible$(LIB_SUFFIX) xvfs$(LIB_SUFFIX)
+all: example-standalone$(LIB_SUFFIX) example-client$(LIB_SUFFIX) example-flexible$(LIB_SUFFIX) xvfs$(LIB_SUFFIX)
 
 example.c: $(shell find example -type f) $(shell find lib -type f) xvfs.c.rvt xvfs-create Makefile
 	./xvfs-create --directory example --name example > example.c.new
 	mv example.c.new example.c
 
-example.o: example.c xvfs-core.h xvfs-core.c Makefile
-	$(CC) $(CPPFLAGS) -DXVFS_MODE_FLEXIBLE $(CFLAGS) -o example.o -c example.c
+example-standalone.o: example.c xvfs-core.h xvfs-core.c Makefile
+	$(CC) $(CPPFLAGS) -DXVFS_MODE_STANDALONE $(CFLAGS) -o example-standalone.o -c example.c
 
-example$(LIB_SUFFIX): example.o Makefile
-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o example$(LIB_SUFFIX) example.o $(LIBS)
+example-standalone$(LIB_SUFFIX): example-standalone.o Makefile
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o example-standalone$(LIB_SUFFIX) example-standalone.o $(LIBS)
 
 example-client.o: example.c xvfs-core.h Makefile
 	$(CC) $(CPPFLAGS) -DXVFS_MODE_CLIENT $(CFLAGS) -o example-client.o -c example.c
@@ -44,11 +44,11 @@ xvfs-create-standalone: $(shell find lib -type f) xvfs-create xvfs-core.c xvfs-c
 	chmod +x xvfs-create-standalone.new
 	mv xvfs-create-standalone.new xvfs-create-standalone
 
-test: example$(LIB_SUFFIX) xvfs$(LIB_SUFFIX) example-client$(LIB_SUFFIX) example-flexible$(LIB_SUFFIX) Makefile
+test: example-standalone$(LIB_SUFFIX) xvfs$(LIB_SUFFIX) example-client$(LIB_SUFFIX) example-flexible$(LIB_SUFFIX) Makefile
 	rm -f __test__.tcl
 	echo 'if {[catch { eval $$::env(XVFS_TEST_LOAD_COMMANDS); source //xvfs:/example/main.tcl }]} { puts stderr $$::errorInfo; exit 1 }; exit 0' > __test__.tcl
 	@export XVFS_TEST_LOAD_COMMANDS; for XVFS_TEST_LOAD_COMMANDS in \
-		'load ./example$(LIB_SUFFIX) Xvfs_example' \
+		'load ./example-standalone$(LIB_SUFFIX) Xvfs_example' \
 		'load -global ./xvfs$(LIB_SUFFIX); load ./example-client$(LIB_SUFFIX) Xvfs_example' \
 		'load ./xvfs$(LIB_SUFFIX); load ./example-flexible$(LIB_SUFFIX) Xvfs_example' \
 		'load ./example-flexible$(LIB_SUFFIX) Xvfs_example'; do \
@@ -71,7 +71,7 @@ coverage:
 clean:
 	rm -f xvfs-create-standalone.new xvfs-create-standalone
 	rm -f example.c example.c.new
-	rm -f example$(LIB_SUFFIX) example.o
+	rm -f example-standalone$(LIB_SUFFIX) example-standalone.o
 	rm -f example-client.o example-client$(LIB_SUFFIX)
 	rm -f example-flexible.o example-flexible$(LIB_SUFFIX)
 	rm -f xvfs.o xvfs$(LIB_SUFFIX)
