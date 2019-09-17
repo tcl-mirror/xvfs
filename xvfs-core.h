@@ -75,6 +75,7 @@ int Xvfs_Init(Tcl_Interp *interp);
 #else
 #  error Unsupported XVFS_MODE
 #endif
+#undef XVFS_REGISTER_INTERFACE
 
 /*
  * In flexible or standalone mode, directly include what

@@ -1218,3 +1218,10 @@ int Xvfs_Register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
 	return(TCL_OK);
 }
 #endif /* XVFS_MODE_SERVER */
+#undef XVFS_DEBUG_PRINTF
+#undef XVFS_DEBUG_PUTS
+#undef XVFS_DEBUG_ENTER
+#undef XVFS_DEBUG_LEAVE
+#undef XVFS_INTERNAL_SERVER_MAGIC
+#undef XVFS_INTERNAL_SERVER_MAGIC_LEN
+#undef XVFS_ROOT_MOUNTPOINT

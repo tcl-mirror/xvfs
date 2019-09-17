@@ -235,3 +235,5 @@ int Xvfs_<?= $::xvfs::fsName ?>_Init(Tcl_Interp *interp) {
 	
 	return(TCL_OK);
 }
+#undef XVFS_NAME_LOOKUP_ERROR
+#undef XVFS_FILE_BLOCKSIZE
