@@ -6,6 +6,8 @@ example-client.o
 example-client.so
 example-server.o
 example-server.so
+example.gcda
+example.gcno
 xvfs-core.o
 xvfs-create-standalone.new
 xvfs-create-standalone
