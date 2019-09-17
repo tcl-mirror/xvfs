@@ -39,40 +39,75 @@ struct xvfs_file_data {
 
 <?
 	package require xvfs
+
+	set ::xvfs::hashNameThreshold 3
+	if {[info exists ::env(XVFS_CREATE_HASH_NAME_THRESHOLD)]} {
+		set ::xvfs::hashNameThreshold $::env(XVFS_CREATE_HASH_NAME_THRESHOLD)
+	}
 	xvfs::main $argv
+
+	proc emitFilenameVerification {indentLevel outputFileNameLen outputFileIndexes} {
+		set indent [string repeat "\t" $indentLevel]
+		foreach outputFileIndex $outputFileIndexes {
+?><?= $indent ?>if (memcmp(path, xvfs_<?= $::xvfs::fsName ?>_data[<?= $outputFileIndex ?>].name, <?= $outputFileNameLen ?>) == 0) {
+<?= $indent ?>	return(<?= $outputFileIndex ?>);
+<?= $indent ?>}
+<?
+		}
+	}
 ?>
 static long xvfs_<?= $::xvfs::fsName ?>_nameToIndex(const char *path) {
-	unsigned int pathHash;
-	size_t pathLen;
+<?
+	for {set index 0} {$index < [llength $::xvfs::outputFiles]} {incr index} {
+		set outputFileName [lindex $::xvfs::outputFiles $index]
+		set outputFileNameLen [string length $outputFileName]
+		set outputFileNameHash [zlib adler32 $outputFileName 0]
+		lappend outputFileNameHashToIndex([list $outputFileNameLen $outputFileNameHash]) $index
+		lappend outputFileNameLenToIndex($outputFileNameLen) $index
+	}
+
+	set needZlib false
+	foreach {outputFileNameLen outputFileIndexes} [lsort -stride 2 -dictionary [array get outputFileNameLenToIndex]] {
+		if {[llength $outputFileIndexes] > $::xvfs::hashNameThreshold} {
+			set needZlib true
+			break;
+		}
+	}
+?><?
+	if {$needZlib} {
+?>	unsigned int pathHash;
+<?	} ?>	size_t pathLen;
 	
 	if (path == NULL) {
 		return(XVFS_NAME_LOOKUP_ERROR);
 	}
 
 	pathLen = strlen(path);
-	pathHash = Tcl_ZlibAdler32(0, (const unsigned char *) path, pathLen);
-	switch (pathHash) {
+	switch (pathLen) {
 <?
-	for {set index 0} {$index < [llength $::xvfs::outputFiles]} {incr index} {
-		set outputFile [lindex $::xvfs::outputFiles $index]
-		set outputFileHash [zlib adler32 $outputFile 0]
-		lappend outputFileHashToIndex($outputFileHash) $index
-	}
-	
-	foreach {outputFileHash outputFileIndexes} [lsort -stride 2 -dictionary [array get outputFileHashToIndex]] {
-?>		case <?= $outputFileHash ?>:
+
+	foreach {outputFileNameLen outputFileIndexes} [lsort -stride 2 -dictionary [array get outputFileNameLenToIndex]] {
+?>		case <?= $outputFileNameLen ?>:
 <?
-			foreach outputFileIndex $outputFileIndexes {
-				set outputFileName [lindex $::xvfs::outputFiles $outputFileIndex]
-				set outputFileNameLen [string length $outputFileName]
-?>			if (pathLen == <?= $outputFileNameLen ?> && memcmp(path, xvfs_<?= $::xvfs::fsName ?>_data[<?= $outputFileIndex ?>].name, pathLen) == 0) {
-				return(<?= $outputFileIndex ?>);
-			}
+			if {[llength $outputFileIndexes] > $::xvfs::hashNameThreshold} {
+?>			pathHash = Tcl_ZlibAdler32(0, (const unsigned char *) path, <?= $outputFileNameLen ?>);
+			switch (pathHash) {
 <?
+				foreach {key outputFileIndexes} [lsort -stride 2 -dictionary [array get outputFileNameHashToIndex [list $outputFileNameLen *]]] {
+					set outputFileNameHash [lindex $key 1]
+?>				case <?= $outputFileNameHash ?>:
+<?
+					emitFilenameVerification 5 $outputFileNameLen $outputFileIndexes
+?>					break;	
+<?
+				}
+?>			}
+<?
+			} else {
+				emitFilenameVerification 3 $outputFileNameLen $outputFileIndexes
 			}
 ?>			break;
-<?	} ?>
-	}
+<?	} ?>	}
 	
 	return(XVFS_NAME_LOOKUP_ERROR);
 }
