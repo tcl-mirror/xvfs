@@ -4,11 +4,12 @@ example.o
 example.so
 example-client.o
 example-client.so
-example-server.o
-example-server.so
+xvfs.o
+xvfs.so
 example.gcda
 example.gcno
 xvfs-core.o
 xvfs-create-standalone.new
 xvfs-create-standalone
 __test__.tcl
+sdks
