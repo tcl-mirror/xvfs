@@ -17,7 +17,7 @@ example.so: example.o Makefile
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o example.so example.o $(LIBS)
 
 example-client.o: example.c xvfs-core.h Makefile
-	$(CC) $(CPPFLAGS) -DXVFS_MODE_CLIENT $(CFLAGS) -o example-client.o -c example.c
+	$(CC) $(CPPFLAGS) -DXVFS_MODE_FLEXIBLE $(CFLAGS) -o example-client.o -c example.c
 
 example-server.o: xvfs-core.h xvfs-core.c Makefile
 	$(CC) $(CPPFLAGS) -DXVFS_MODE_SERVER $(CFLAGS) -o example-server.o -c xvfs-core.c

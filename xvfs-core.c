@@ -519,6 +519,9 @@ static int xvfs_tclfs_stat(Tcl_Obj *path, Tcl_StatBuf *statBuf, struct xvfs_tclf
 	retval = instanceInfo->fsInfo->getStatProc(pathStr, statBuf);
 	if (retval < 0) {
 		XVFS_DEBUG_PRINTF("... failed: %s", xvfs_perror(retval));
+
+		Tcl_SetErrno(xvfs_errorToErrno(retval));
+
 		retval = -1;
 	} else {
 		XVFS_DEBUG_PUTS("... ok");
@@ -935,10 +938,14 @@ static int xvfs_flexible_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo
 	int (*xvfs_register)(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo);
 	Tcl_Obj *rootPathObj;
 
+	XVFS_DEBUG_ENTER;
+
 	xvfs_register = &xvfs_standalone_register;
 
 	rootPathObj = Tcl_NewStringObj(XVFS_ROOT_MOUNTPOINT, -1);
 	if (!rootPathObj) {
+		XVFS_DEBUG_LEAVE;
+
 		return(xvfs_register(interp, fsInfo));
 	}
 
@@ -947,11 +954,15 @@ static int xvfs_flexible_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo
 	Tcl_DecrRefCount(rootPathObj);
 
 	if (!fsHandler) {
+		XVFS_DEBUG_LEAVE;
+
 		return(xvfs_register(interp, fsInfo));
 	}
 
 	fsHandlerDataRaw = Tcl_FSData(fsHandler);
 	if (!fsHandlerDataRaw) {
+		XVFS_DEBUG_LEAVE;
+
 		return(xvfs_register(interp, fsInfo));
 	}
 
@@ -962,8 +973,11 @@ static int xvfs_flexible_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo
 	 * client data smaller than XVFS_INTERNAL_SERVER_MAGIC_LEN ?
 	 */
 	if (memcmp(fsHandlerData->magic, XVFS_INTERNAL_SERVER_MAGIC, sizeof(fsHandlerData->magic)) == 0) {
+		XVFS_DEBUG_PUTS("Found a server handler");
 		xvfs_register = fsHandlerData->registerProc;
 	}
+
+	XVFS_DEBUG_LEAVE;
 
 	return(xvfs_register(interp, fsInfo));
 }
@@ -972,17 +986,15 @@ static int xvfs_flexible_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo
 #if defined(XVFS_MODE_SERVER)
 static Tcl_Filesystem xvfs_tclfs_dispatch_fs;
 static Tcl_HashTable xvfs_tclfs_dispatch_map;
+static struct xvfs_tclfs_server_info xvfs_tclfs_dispatch_fsdata;
 
-static struct xvfs_tclfs_instance_info *xvfs_tclfs_dispatch_pathToInstanceInfo(Tcl_Obj *path) {
-	Tcl_HashEntry *mapEntry;
-	struct xvfs_tclfs_instance_info *retval;
+static int xvfs_tclfs_dispatch_pathInFilesystem(Tcl_Obj *path, ClientData *dataPtr) {
 	const char *pathStr, *rootStr;
-	char *fsName, *fsNameEnds, origSep;
 	int pathLen, rootLen;
 
 	XVFS_DEBUG_ENTER;
 
-	XVFS_DEBUG_PRINTF("Looking up path \"%s\" ...", Tcl_GetString(path));
+	XVFS_DEBUG_PRINTF("Verifying that \"%s\" belongs in XVFS ...", Tcl_GetString(path));
 	
 	rootStr = XVFS_ROOT_MOUNTPOINT;
 	rootLen = strlen(XVFS_ROOT_MOUNTPOINT);
@@ -992,14 +1004,38 @@ static struct xvfs_tclfs_instance_info *xvfs_tclfs_dispatch_pathToInstanceInfo(T
 	if (pathLen < rootLen) {
 		XVFS_DEBUG_PUTS("... failed (length too short)");
 		XVFS_DEBUG_LEAVE;
-		return(NULL);
+		return(-1);
 	}
 
 	if (memcmp(pathStr, rootStr, rootLen) != 0) {
 		XVFS_DEBUG_PUTS("... failed (incorrect prefix)");
 		XVFS_DEBUG_LEAVE;
+		return(-1);
+	}
+
+	XVFS_DEBUG_PUTS("... yes");
+
+	XVFS_DEBUG_LEAVE;
+
+	return(TCL_OK);
+}
+
+static struct xvfs_tclfs_instance_info *xvfs_tclfs_dispatch_pathToInfo(Tcl_Obj *path) {
+	Tcl_HashEntry *mapEntry;
+	struct xvfs_tclfs_instance_info *retval;
+	int rootLen;
+	char *pathStr, *fsName, *fsNameEnds, origSep;
+
+	XVFS_DEBUG_ENTER;
+
+	if (xvfs_tclfs_dispatch_pathInFilesystem(path, NULL) != TCL_OK) {
+		XVFS_DEBUG_LEAVE;
+
 		return(NULL);
 	}
+
+	rootLen = strlen(XVFS_ROOT_MOUNTPOINT);
+	pathStr = Tcl_GetString(path);
 
 	fsName = ((char *) pathStr) + rootLen;
 
@@ -1029,23 +1065,14 @@ static struct xvfs_tclfs_instance_info *xvfs_tclfs_dispatch_pathToInstanceInfo(T
 	return(retval);
 }
 
-static int xvfs_tclfs_dispatch_pathInFilesystem(Tcl_Obj *path, ClientData *dataPtr) {
-	static struct xvfs_tclfs_instance_info *instanceInfo;
-
-	instanceInfo = xvfs_tclfs_dispatch_pathToInstanceInfo(path);
-	if (!instanceInfo) {
-		return(-1);
-	}
-
-	return(xvfs_tclfs_pathInFilesystem(path, dataPtr, instanceInfo));
-}
-
 static int xvfs_tclfs_dispatch_stat(Tcl_Obj *path, Tcl_StatBuf *statBuf) {
 	struct xvfs_tclfs_instance_info *instanceInfo;
 
-	instanceInfo = xvfs_tclfs_dispatch_pathToInstanceInfo(path);
+	instanceInfo = xvfs_tclfs_dispatch_pathToInfo(path);
 	if (!instanceInfo) {
-		return(0);
+		Tcl_SetErrno(xvfs_errorToErrno(XVFS_RV_ERR_ENOENT));
+
+		return(-1);
 	}
 
 	return(xvfs_tclfs_stat(path, statBuf, instanceInfo));
@@ -1054,7 +1081,7 @@ static int xvfs_tclfs_dispatch_stat(Tcl_Obj *path, Tcl_StatBuf *statBuf) {
 static int xvfs_tclfs_dispatch_access(Tcl_Obj *path, int mode) {
 	struct xvfs_tclfs_instance_info *instanceInfo;
 
-	instanceInfo = xvfs_tclfs_dispatch_pathToInstanceInfo(path);
+	instanceInfo = xvfs_tclfs_dispatch_pathToInfo(path);
 	if (!instanceInfo) {
 		return(-1);
 	}
@@ -1065,7 +1092,7 @@ static int xvfs_tclfs_dispatch_access(Tcl_Obj *path, int mode) {
 static Tcl_Channel xvfs_tclfs_dispatch_openFileChannel(Tcl_Interp *interp, Tcl_Obj *path, int mode, int permissions) {
 	struct xvfs_tclfs_instance_info *instanceInfo;
 
-	instanceInfo = xvfs_tclfs_dispatch_pathToInstanceInfo(path);
+	instanceInfo = xvfs_tclfs_dispatch_pathToInfo(path);
 	if (!instanceInfo) {
 		return(NULL);
 	}
@@ -1076,7 +1103,7 @@ static Tcl_Channel xvfs_tclfs_dispatch_openFileChannel(Tcl_Interp *interp, Tcl_O
 static int xvfs_tclfs_dispatch_matchInDir(Tcl_Interp *interp, Tcl_Obj *resultPtr, Tcl_Obj *pathPtr, const char *pattern, Tcl_GlobTypeData *types) {
 	struct xvfs_tclfs_instance_info *instanceInfo;
 
-	instanceInfo = xvfs_tclfs_dispatch_pathToInstanceInfo(pathPtr);
+	instanceInfo = xvfs_tclfs_dispatch_pathToInfo(pathPtr);
 	if (!instanceInfo) {
 		return(TCL_ERROR);
 	}
@@ -1084,7 +1111,7 @@ static int xvfs_tclfs_dispatch_matchInDir(Tcl_Interp *interp, Tcl_Obj *resultPtr
 	return(xvfs_tclfs_matchInDir(interp, resultPtr, pathPtr, pattern, types, instanceInfo));
 }
 
-static int xvfs_tclfs_dispatch_init(Tcl_Interp *interp) {
+int Xvfs_Init(Tcl_Interp *interp) {
 	static int registered = 0;
 	int tclRet;
 
@@ -1126,7 +1153,10 @@ static int xvfs_tclfs_dispatch_init(Tcl_Interp *interp) {
 	xvfs_tclfs_dispatch_fs.getCwdProc                 = NULL;
 	xvfs_tclfs_dispatch_fs.chdirProc                  = NULL;
 
-	tclRet = Tcl_FSRegister(NULL, &xvfs_tclfs_dispatch_fs);
+	memcpy(xvfs_tclfs_dispatch_fsdata.magic, XVFS_INTERNAL_SERVER_MAGIC, XVFS_INTERNAL_SERVER_MAGIC_LEN);
+	xvfs_tclfs_dispatch_fsdata.registerProc = Xvfs_Register;
+
+	tclRet = Tcl_FSRegister((ClientData) &xvfs_tclfs_dispatch_fsdata, &xvfs_tclfs_dispatch_fs);
 	if (tclRet != TCL_OK) {
 		if (interp) {
 			Tcl_SetResult(interp, "Tcl_FSRegister() failed", NULL);
@@ -1155,7 +1185,7 @@ int Xvfs_Register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
 	int dispatchInitRet;
 	int new;
 
-	dispatchInitRet = xvfs_tclfs_dispatch_init(interp);
+	dispatchInitRet = Xvfs_Init(interp);
 	if (dispatchInitRet != TCL_OK) {
 		return(dispatchInitRet);
 	}

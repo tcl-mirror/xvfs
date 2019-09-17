@@ -70,6 +70,7 @@ extern XVFS_REGISTER_INTERFACE(Xvfs_Register)
  * for flexible/client modes, just forward declare it
  */
 XVFS_REGISTER_INTERFACE(Xvfs_Register)
+int Xvfs_Init(Tcl_Interp *interp);
 
 #else
 #  error Unsupported XVFS_MODE
