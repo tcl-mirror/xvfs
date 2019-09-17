@@ -7,6 +7,17 @@
 #define XVFS_NAME_LOOKUP_ERROR (-1)
 #define XVFS_FILE_BLOCKSIZE 1024
 
+/*
+ * XXX:TODO: Determine this automatically rather than
+ *           by heuristics
+ */
+#define HAVE_STRUCT_STAT_ST_BLKSIZE 1
+#define HAVE_STRUCT_STAT_ST_BLOCKS  1
+#ifdef WIN32
+#  undef HAVE_STRUCT_STAT_ST_BLKSIZE
+#  undef HAVE_STRUCT_STAT_ST_BLOCKS
+#endif
+
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
 typedef enum {
@@ -191,18 +202,24 @@ static int xvfs_<?= $::xvfs::fsName ?>_getStat(const char *path, Tcl_StatBuf *st
 	statBuf->st_atime = 0;
 	statBuf->st_ctime = 0;
 	statBuf->st_mtime = 0;
+#ifdef HAVE_STRUCT_STAT_ST_BLKSIZE
 	statBuf->st_blksize = XVFS_FILE_BLOCKSIZE;
+#endif
 	
 	if (fileInfo->type == XVFS_FILE_TYPE_REG) {
 		statBuf->st_mode   = 0100444;
 		statBuf->st_nlink  = 1;
 		statBuf->st_size   = fileInfo->size;
+#ifdef HAVE_STRUCT_STAT_ST_BLOCKS
 		statBuf->st_blocks = (fileInfo->size + statBuf->st_blksize - 1) / statBuf->st_blksize;
+#endif
 	} else if (fileInfo->type == XVFS_FILE_TYPE_DIR) {
 		statBuf->st_mode   = 040555;
 		statBuf->st_nlink  = fileInfo->size;
 		statBuf->st_size   = fileInfo->size;
+#ifdef HAVE_STRUCT_STAT_ST_BLOCKS
 		statBuf->st_blocks = 1;
+#endif
 	}
 	
 	return(0);
