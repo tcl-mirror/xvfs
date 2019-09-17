@@ -1,6 +1,6 @@
 TCL_CONFIG_SH := /usr/lib64/tclConfig.sh
 CPPFLAGS      := -I. -DUSE_TCL_STUBS=1 -DXVFS_DEBUG $(shell . "${TCL_CONFIG_SH}" && echo "$${TCL_INCLUDE_SPEC}") $(XVFS_ADD_CPPFLAGS)
-CFLAGS        := -fPIC -g3 -ggdb3 -Wall -Wextra $(XVFS_ADD_CFLAGS)
+CFLAGS        := -fPIC -g3 -ggdb3 -Wall $(XVFS_ADD_CFLAGS)
 LDFLAGS       := $(XVFS_ADD_LDFLAGS)
 LIBS          := $(shell . "${TCL_CONFIG_SH}" && echo "$${TCL_STUB_LIB_SPEC}")
 TCLSH         := tclsh
@@ -44,7 +44,8 @@ xvfs-create-standalone: $(shell find lib -type f) xvfs-create xvfs-core.c xvfs-c
 	chmod +x xvfs-create-standalone.new
 	mv xvfs-create-standalone.new xvfs-create-standalone
 
-benchmark: xvfs$(LIB_SUFFIX) example-flexible$(LIB_SUFFIX) Makefile
+benchmark:
+	$(MAKE) clean all XVFS_ADD_CPPFLAGS="-UXVFS_DEBUG" XVFS_ADD_CFLAGS="-g0 -ggdb0 -s -O3"
 	./benchmark.tcl
 
 test: example-standalone$(LIB_SUFFIX) xvfs$(LIB_SUFFIX) example-client$(LIB_SUFFIX) example-flexible$(LIB_SUFFIX) Makefile
