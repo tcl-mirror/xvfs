@@ -194,11 +194,11 @@ static int xvfs_<?= $::xvfs::fsName ?>_getStat(const char *path, Tcl_StatBuf *st
 	
 	fileInfo = &xvfs_<?= $::xvfs::fsName ?>_data[inode];
 	
-	statBuf->st_dev   = 0;
-	statBuf->st_rdev  = 0;
+	statBuf->st_dev   = <?= [zlib adler32 $::xvfs::fsName] ?>;
+	statBuf->st_rdev  = <?= [zlib adler32 $::xvfs::fsName] ?>;
 	statBuf->st_ino   = inode;
-	statBuf->st_uid   = -1;
-	statBuf->st_gid   = -1;
+	statBuf->st_uid   = 0;
+	statBuf->st_gid   = 0;
 	statBuf->st_atime = 0;
 	statBuf->st_ctime = 0;
 	statBuf->st_mtime = 0;
