@@ -1064,6 +1064,14 @@ static struct xvfs_tclfs_instance_info *xvfs_tclfs_dispatch_pathToInfo(Tcl_Obj *
 
 	XVFS_DEBUG_LEAVE;
 	return(retval);
+
+	/*
+	 * UNREACH: We do no need the more specific check because we
+	 * claim everything under the root, but we want to suppress
+	 * a warning about it not being used.
+	 */
+	xvfs_tclfs_pathInFilesystem(NULL, NULL, NULL);
+	return(NULL);
 }
 
 static int xvfs_tclfs_dispatch_stat(Tcl_Obj *path, Tcl_StatBuf *statBuf) {
