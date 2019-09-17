@@ -152,7 +152,7 @@ static int xvfs_errorToErrno(int xvfs_error) {
 	}
 }
 
-static const char *xvfs_perror(int xvfs_error) {
+static const char *xvfs_strerror(int xvfs_error) {
 	if (xvfs_error >= 0) {
 		return("Not an error");
 	}
@@ -178,7 +178,7 @@ static void xvfs_setresults_error(Tcl_Interp *interp, int xvfs_error) {
 	}
 
 	Tcl_SetErrno(xvfs_errorToErrno(xvfs_error));
-	Tcl_SetResult(interp, (char *) xvfs_perror(xvfs_error), NULL);
+	Tcl_SetResult(interp, (char *) xvfs_strerror(xvfs_error), NULL);
 
 	return;
 }
@@ -214,7 +214,7 @@ static Tcl_Channel xvfs_tclfs_openChannel(Tcl_Interp *interp, Tcl_Obj *path, str
 
 	statRet = instanceInfo->fsInfo->getStatProc(Tcl_GetString(path), &fileInfo);
 	if (statRet < 0) {
-		XVFS_DEBUG_PRINTF("... failed: %s", xvfs_perror(statRet));
+		XVFS_DEBUG_PRINTF("... failed: %s", xvfs_strerror(statRet));
 
 		xvfs_setresults_error(interp, XVFS_RV_ERR_ENOENT);
 
@@ -518,7 +518,7 @@ static int xvfs_tclfs_stat(Tcl_Obj *path, Tcl_StatBuf *statBuf, struct xvfs_tclf
 
 	retval = instanceInfo->fsInfo->getStatProc(pathStr, statBuf);
 	if (retval < 0) {
-		XVFS_DEBUG_PRINTF("... failed: %s", xvfs_perror(retval));
+		XVFS_DEBUG_PRINTF("... failed: %s", xvfs_strerror(retval));
 
 		Tcl_SetErrno(xvfs_errorToErrno(retval));
 
@@ -765,7 +765,7 @@ static int xvfs_tclfs_matchInDir(Tcl_Interp *interp, Tcl_Obj *resultPtr, Tcl_Obj
 	childrenCount = 0;
 	children = instanceInfo->fsInfo->getChildrenProc(pathStr, &childrenCount);
 	if (childrenCount < 0) {
-		XVFS_DEBUG_PRINTF("... error: %s", xvfs_perror(childrenCount));
+		XVFS_DEBUG_PRINTF("... error: %s", xvfs_strerror(childrenCount));
 
 		Tcl_DecrRefCount(path);
 
