@@ -137,7 +137,7 @@ proc ::xvfs::processDirectory {fsName directory {subDirectory ""}} {
 	}
 
 	if {$isTopLevel} {
-		puts "static struct xvfs_file_data xvfs_${fsName}_data\[\] = \{"
+		puts "static const struct xvfs_file_data xvfs_${fsName}_data\[\] = \{"
 	}
 
 	# XXX:TODO: Include hidden files ?

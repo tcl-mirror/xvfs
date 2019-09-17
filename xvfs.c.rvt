@@ -116,7 +116,7 @@ static long xvfs_<?= $::xvfs::fsName ?>_nameToIndex(const char *path) {
 }
 
 static const char **xvfs_<?= $::xvfs::fsName ?>_getChildren(const char *path, Tcl_WideInt *count) {
-	struct xvfs_file_data *fileInfo;
+	const struct xvfs_file_data *fileInfo;
 	long inode;
 
 	/*
@@ -150,7 +150,7 @@ static const char **xvfs_<?= $::xvfs::fsName ?>_getChildren(const char *path, Tc
 }
 
 static const unsigned char *xvfs_<?= $::xvfs::fsName ?>_getData(const char *path, Tcl_WideInt start, Tcl_WideInt *length) {
-	struct xvfs_file_data *fileInfo;
+	const struct xvfs_file_data *fileInfo;
 	Tcl_WideInt resultLength;
 	long inode;
 
@@ -212,7 +212,7 @@ static const unsigned char *xvfs_<?= $::xvfs::fsName ?>_getData(const char *path
 }
 
 static int xvfs_<?= $::xvfs::fsName ?>_getStat(const char *path, Tcl_StatBuf *statBuf) {
-	struct xvfs_file_data *fileInfo;
+	const struct xvfs_file_data *fileInfo;
 	long inode;
 
 	/*
