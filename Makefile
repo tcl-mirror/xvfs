@@ -1,10 +1,12 @@
-CPPFLAGS := -I. -DUSE_TCL_STUBS=1 -DXVFS_DEBUG $(XVFS_ADD_CPPFLAGS)
-CFLAGS   := -fPIC -g3 -ggdb3 -Wall $(XVFS_ADD_CFLAGS)
-LDFLAGS  := $(XVFS_ADD_LDFLAGS)
-LIBS     := -ltclstub8.6
-TCLSH    := tclsh
+TCL_CONFIG_SH := /usr/lib64/tclConfig.sh
+CPPFLAGS      := -I. -DUSE_TCL_STUBS=1 -DXVFS_DEBUG $(shell . "${TCL_CONFIG_SH}" && echo "$${TCL_INCLUDE_SPEC}") $(XVFS_ADD_CPPFLAGS)
+CFLAGS        := -fPIC -g3 -ggdb3 -Wall $(XVFS_ADD_CFLAGS)
+LDFLAGS       := $(XVFS_ADD_LDFLAGS)
+LIBS          := $(shell . "${TCL_CONFIG_SH}" && echo "$${TCL_STUB_LIB_SPEC}")
+TCLSH         := tclsh
+LIB_SUFFIX    := $(shell . "${TCL_CONFIG_SH}"; echo "$${TCL_SHLIB_SUFFIX:-.so}")
 
-all: example.so example-client.so xvfs.so
+all: example$(LIB_SUFFIX) example-client$(LIB_SUFFIX) example-flexible$(LIB_SUFFIX) xvfs$(LIB_SUFFIX)
 
 example.c: $(shell find example -type f) $(shell find lib -type f) xvfs.c.rvt xvfs-create Makefile
 	./xvfs-create --directory example --name example > example.c.new
@@ -13,20 +15,26 @@ example.c: $(shell find example -type f) $(shell find lib -type f) xvfs.c.rvt xv
 example.o: example.c xvfs-core.h xvfs-core.c Makefile
 	$(CC) $(CPPFLAGS) -DXVFS_MODE_FLEXIBLE $(CFLAGS) -o example.o -c example.c
 
-example.so: example.o Makefile
-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o example.so example.o $(LIBS)
+example$(LIB_SUFFIX): example.o Makefile
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o example$(LIB_SUFFIX) example.o $(LIBS)
 
 example-client.o: example.c xvfs-core.h Makefile
-	$(CC) $(CPPFLAGS) -DXVFS_MODE_FLEXIBLE $(CFLAGS) -o example-client.o -c example.c
+	$(CC) $(CPPFLAGS) -DXVFS_MODE_CLIENT $(CFLAGS) -o example-client.o -c example.c
 
-example-client.so: example-client.o Makefile
-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o example-client.so example-client.o $(LIBS)
+example-client$(LIB_SUFFIX): example-client.o Makefile
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o example-client$(LIB_SUFFIX) example-client.o $(LIBS)
+
+example-flexible.o: example.c xvfs-core.h Makefile
+	$(CC) $(CPPFLAGS) -DXVFS_MODE_FLEXIBLE $(CFLAGS) -o example-flexible.o -c example.c
+
+example-flexible$(LIB_SUFFIX): example-flexible.o Makefile
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o example-flexible$(LIB_SUFFIX) example-flexible.o $(LIBS)
 
 xvfs.o: xvfs-core.h xvfs-core.c Makefile
 	$(CC) $(CPPFLAGS) -DXVFS_MODE_SERVER $(CFLAGS) -o xvfs.o -c xvfs-core.c
 
-xvfs.so: xvfs.o Makefile
-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o xvfs.so xvfs.o $(LIBS)
+xvfs$(LIB_SUFFIX): xvfs.o Makefile
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o xvfs$(LIB_SUFFIX) xvfs.o $(LIBS)
 
 # xvfs-create-standalone is a standalone (i.e., no external dependencies
 # like lib/minirivet, xvfs-core.c, etc) version of "xvfs-create"
@@ -36,18 +44,22 @@ xvfs-create-standalone: $(shell find lib -type f) xvfs-create xvfs-core.c xvfs-c
 	chmod +x xvfs-create-standalone.new
 	mv xvfs-create-standalone.new xvfs-create-standalone
 
-test: example.so xvfs.so example-client.so Makefile
+test: example$(LIB_SUFFIX) xvfs$(LIB_SUFFIX) example-client$(LIB_SUFFIX) example-flexible$(LIB_SUFFIX) Makefile
 	rm -f __test__.tcl
-	echo 'if {[catch { load ./example.so Xvfs_example; source //xvfs:/example/main.tcl }]} { puts stderr $$::errorInfo; exit 1 }; exit 0' > __test__.tcl
-	$(GDB) $(TCLSH) __test__.tcl $(TCL_TEST_ARGS)
-	rm -f __test__.tcl
-	echo 'if {[catch { load ./xvfs.so; load ./example-client.so Xvfs_example; source //xvfs:/example/main.tcl }]} { puts stderr $$::errorInfo; exit 1 }; exit 0' > __test__.tcl
-	$(GDB) $(TCLSH) __test__.tcl $(TCL_TEST_ARGS)
+	echo 'if {[catch { eval $$::env(XVFS_TEST_LOAD_COMMANDS); source //xvfs:/example/main.tcl }]} { puts stderr $$::errorInfo; exit 1 }; exit 0' > __test__.tcl
+	@export XVFS_TEST_LOAD_COMMANDS; for XVFS_TEST_LOAD_COMMANDS in \
+		'load ./example$(LIB_SUFFIX) Xvfs_example' \
+		'load -global ./xvfs$(LIB_SUFFIX); load ./example-client$(LIB_SUFFIX) Xvfs_example' \
+		'load ./xvfs$(LIB_SUFFIX); load ./example-flexible$(LIB_SUFFIX) Xvfs_example' \
+		'load ./example-flexible$(LIB_SUFFIX) Xvfs_example'; do \
+			echo "[$${XVFS_TEST_LOAD_COMMANDS}] $(GDB) $(TCLSH) __test__.tcl $(TCL_TEST_ARGS)"; \
+			$(GDB) $(TCLSH) __test__.tcl $(TCL_TEST_ARGS) || exit 1; \
+	done
 	rm -f __test__.tcl
 
 coverage:
 	$(MAKE) clean
-	$(MAKE) example.so XVFS_ADD_CFLAGS=-coverage XVFS_ADD_LDFLAGS=-coverage
+	$(MAKE) example$(LIB_SUFFIX) XVFS_ADD_CFLAGS=-coverage XVFS_ADD_LDFLAGS=-coverage
 	$(MAKE) test XVFS_TEST_EXIT_ON_FAILURE=0
 	rm -f xvfs-test-coverage.info
 	lcov --capture --directory . --output-file xvfs-test-coverage.info
@@ -59,9 +71,10 @@ coverage:
 clean:
 	rm -f xvfs-create-standalone.new xvfs-create-standalone
 	rm -f example.c example.c.new
-	rm -f example.so example.o
-	rm -f example-client.o example-client.so
-	rm -f xvfs.o xvfs.so
+	rm -f example$(LIB_SUFFIX) example.o
+	rm -f example-client.o example-client$(LIB_SUFFIX)
+	rm -f example-flexible.o example-flexible$(LIB_SUFFIX)
+	rm -f xvfs.o xvfs$(LIB_SUFFIX)
 	rm -f example.gcda example.gcno
 	rm -f __test__.tcl
 	rm -f xvfs-test-coverage.info
