@@ -31,7 +31,9 @@ struct xvfs_tclfs_server_info {
 #endif /* XVFS_MODE_FLEXIBLE || XVFS_MODE_SERVER */
 
 #if defined(XVFS_MODE_SERVER) || defined(XVFS_MODE_STANDALONE) || defined(XVFS_MODE_FLEXIBLE)
-#define XVFS_ROOT_MOUNTPOINT "//xvfs:/"
+#ifndef XVFS_ROOT_MOUNTPOINT
+#  define XVFS_ROOT_MOUNTPOINT "//xvfs:/"
+#endif
 
 struct xvfs_tclfs_instance_info {
 	struct Xvfs_FSInfo *fsInfo;
@@ -988,23 +990,31 @@ static int xvfs_tclfs_dispatch_pathInFS(Tcl_Obj *path, ClientData *dataPtr) {
 	XVFS_DEBUG_ENTER;
 
 	XVFS_DEBUG_PRINTF("Verifying that \"%s\" belongs in XVFS ...", Tcl_GetString(path));
-	
+
+	path = xvfs_absolutePath(path);
+
 	rootStr = XVFS_ROOT_MOUNTPOINT;
 	rootLen = strlen(XVFS_ROOT_MOUNTPOINT);
 
 	pathStr = Tcl_GetStringFromObj(path, &pathLen);
 
 	if (pathLen < rootLen) {
+		Tcl_DecrRefCount(path);
+
 		XVFS_DEBUG_PUTS("... failed (length too short)");
 		XVFS_DEBUG_LEAVE;
 		return(-1);
 	}
 
 	if (memcmp(pathStr, rootStr, rootLen) != 0) {
+		Tcl_DecrRefCount(path);
+
 		XVFS_DEBUG_PUTS("... failed (incorrect prefix)");
 		XVFS_DEBUG_LEAVE;
 		return(-1);
 	}
+
+	Tcl_DecrRefCount(path);
 
 	XVFS_DEBUG_PUTS("... yes");
 
@@ -1021,7 +1031,11 @@ static struct xvfs_tclfs_instance_info *xvfs_tclfs_dispatch_pathToInfo(Tcl_Obj *
 
 	XVFS_DEBUG_ENTER;
 
+	path = xvfs_absolutePath(path);
+
 	if (xvfs_tclfs_dispatch_pathInFS(path, NULL) != TCL_OK) {
+		Tcl_DecrRefCount(path);
+
 		XVFS_DEBUG_LEAVE;
 
 		return(NULL);
@@ -1053,6 +1067,8 @@ static struct xvfs_tclfs_instance_info *xvfs_tclfs_dispatch_pathToInfo(Tcl_Obj *
 		retval = NULL;
 		XVFS_DEBUG_PUTS("... found no registered filesystem.");
 	}
+
+	Tcl_DecrRefCount(path);
 
 	XVFS_DEBUG_LEAVE;
 	return(retval);
