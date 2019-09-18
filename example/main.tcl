@@ -7,7 +7,13 @@ tcltest::testConstraint tcl87 [string match "8.7.*" [info patchlevel]]
 tcltest::configure -verbose pbse
 tcltest::configure {*}$argv
 
-set rootDir "//xvfs:/example"
+if {![info exists ::env(XVFS_ROOT_MOUNTPOINT)]} {
+	set xvfsRootMountpoint "//xvfs:"
+} else {
+	set xvfsRootMountpoint $::env(XVFS_ROOT_MOUNTPOINT)
+}
+
+set rootDir "${xvfsRootMountpoint}/example"
 set rootDirNative  [file join [pwd] example]
 #set rootDir $rootDirNative
 set testFile "${rootDir}/foo"
@@ -275,7 +281,7 @@ tcltest::test xvfs-stat-basic-dir "Xvfs stat Basic Directory Test" -body {
 
 # Broken in Tcl 8.6 and earlier
 tcltest::test xvfs-glob-advanced-dir-with-pattern "Xvfs Glob Match Pattern and Directory Together" -body {
-	llength [glob //xvfs:/example/*]
+	llength [glob ${rootDir}/*]
 } -constraints tcl87 -result 3
 
 tcltest::test xvfs-glob-file-dirname "Xvfs Relies on file dirname" -body {
