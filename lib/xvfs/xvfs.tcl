@@ -49,15 +49,19 @@ proc ::xvfs::sanitizeCStringList {list {prefix ""} {width 80}} {
 }
 
 proc ::xvfs::binaryToCHex {binary {prefix ""} {width 10}} {
-	binary scan $binary H* binary
+	set binary [binary encode hex $binary]
 	set output [list]
 
 	set width [expr {$width * 2}]
 	set stopAt [expr {$width - 1}]
 
-	while {$binary ne ""} {
-		set row [string range $binary 0 $stopAt]
-		set binary [string range $binary $width end]
+	set offset 0
+	while 1 {
+		set row [string range $binary $offset [expr {$offset + $stopAt}]]
+		if {[string length $row] == 0} {
+			break
+		}
+		incr offset [string length $row]
 
 		set rowOutput [list]
 		while {$row ne ""} {
