@@ -393,14 +393,6 @@ static void xvfs_tclfs_watchChannel(ClientData channelInstanceData_p, int mask) 
 
 	channelInstanceData = (struct xvfs_tclfs_channel_id *) channelInstanceData_p;
 
-	/*
-	 * If the read call has marked that we have reached EOF,
-	 * do not signal any further
-	 */
-	if (channelInstanceData->eofMarked) {
-		return;
-	}
-
 	event = (struct xvfs_tclfs_channel_event *) Tcl_Alloc(sizeof(*event));
 	event->tcl.proc = xvfs_tclfs_watchChannelEvent;
 	event->tcl.nextPtr = NULL;
