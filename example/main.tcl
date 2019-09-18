@@ -8,12 +8,12 @@ tcltest::configure -verbose pbse
 tcltest::configure {*}$argv
 
 if {![info exists ::env(XVFS_ROOT_MOUNTPOINT)]} {
-	set xvfsRootMountpoint "//xvfs:"
+	set xvfsRootMountpoint "//xvfs:/"
 } else {
 	set xvfsRootMountpoint $::env(XVFS_ROOT_MOUNTPOINT)
 }
 
-set rootDir "${xvfsRootMountpoint}/example"
+set rootDir "${xvfsRootMountpoint}example"
 set rootDirNative  [file join [pwd] example]
 #set rootDir $rootDirNative
 set testFile "${rootDir}/foo"

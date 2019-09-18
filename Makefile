@@ -1,5 +1,6 @@
 TCL_CONFIG_SH := /usr/lib64/tclConfig.sh
-CPPFLAGS      := -I. -DUSE_TCL_STUBS=1 -DXVFS_DEBUG $(shell . "${TCL_CONFIG_SH}" && echo "$${TCL_INCLUDE_SPEC}") $(XVFS_ADD_CPPFLAGS)
+XVFS_ROOT_MOUNTPOINT := //xvfs:/
+CPPFLAGS      := -DXVFS_ROOT_MOUNTPOINT='"$(XVFS_ROOT_MOUNTPOINT)"' -I. -DUSE_TCL_STUBS=1 -DXVFS_DEBUG $(shell . "${TCL_CONFIG_SH}" && echo "$${TCL_INCLUDE_SPEC}") $(XVFS_ADD_CPPFLAGS)
 CFLAGS        := -fPIC -g3 -ggdb3 -Wall $(XVFS_ADD_CFLAGS)
 LDFLAGS       := $(XVFS_ADD_LDFLAGS)
 LIBS          := $(shell . "${TCL_CONFIG_SH}" && echo "$${TCL_STUB_LIB_SPEC}")
@@ -50,8 +51,8 @@ benchmark:
 
 test: example-standalone$(LIB_SUFFIX) xvfs$(LIB_SUFFIX) example-client$(LIB_SUFFIX) example-flexible$(LIB_SUFFIX) Makefile
 	rm -f __test__.tcl
-	echo 'if {[catch { eval $$::env(XVFS_TEST_LOAD_COMMANDS); source //xvfs:/example/main.tcl }]} { puts stderr $$::errorInfo; exit 1 }; exit 0' > __test__.tcl
-	@export XVFS_TEST_LOAD_COMMANDS; for XVFS_TEST_LOAD_COMMANDS in \
+	echo 'if {[catch { eval $$::env(XVFS_TEST_LOAD_COMMANDS); source $(XVFS_ROOT_MOUNTPOINT)example/main.tcl }]} { puts stderr $$::errorInfo; exit 1 }; exit 0' > __test__.tcl
+	@export XVFS_ROOT_MOUNTPOINT; export XVFS_TEST_LOAD_COMMANDS; for XVFS_TEST_LOAD_COMMANDS in \
 		'load ./example-standalone$(LIB_SUFFIX) Xvfs_example' \
 		'load -global ./xvfs$(LIB_SUFFIX); load ./example-client$(LIB_SUFFIX) Xvfs_example' \
 		'load ./xvfs$(LIB_SUFFIX); load ./example-flexible$(LIB_SUFFIX) Xvfs_example' \
