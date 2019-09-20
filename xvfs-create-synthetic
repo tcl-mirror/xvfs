@@ -17,7 +17,10 @@ proc ::xvfs::callback::addOutputFiles {fsName} {
 		type file
 		fileContents "abc"
 	}
-	return [list "" "foo"]
+	::xvfs::processFile $fsName "./xvfs-create-synthetic" "xvfs-create-synthetic" {
+		type file
+	}
+	return [list "" "foo" "xvfs-create-synthetic"]
 }
 
 ::xvfs::run --directory [pwd] --name synthetic
