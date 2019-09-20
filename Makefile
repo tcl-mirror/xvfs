@@ -46,10 +46,10 @@ xvfs-create-standalone: $(shell find lib -type f) xvfs-create xvfs-core.c xvfs-c
 	mv xvfs-create-standalone.new xvfs-create-standalone
 
 xvfs_random$(LIB_SUFFIX): $(shell find example -type f) $(shell find lib -type f) lib/xvfs/xvfs.c.rvt xvfs-create-random Makefile
-	./xvfs-create-random | $(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -DXVFS_MODE_STANDALONE -x c - -shared -o xvfs_random$(LIB_SUFFIX) $(LIBS)
+	./xvfs-create-random | $(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -DXVFS_MODE_FLEXIBLE -x c - -shared -o xvfs_random$(LIB_SUFFIX) $(LIBS)
 
 xvfs_synthetic$(LIB_SUFFIX): $(shell find lib -type f) lib/xvfs/xvfs.c.rvt xvfs-create-synthetic Makefile
-	./xvfs-create-synthetic | $(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -DXVFS_MODE_STANDALONE -x c - -shared -o xvfs_synthetic$(LIB_SUFFIX) $(LIBS)
+	./xvfs-create-synthetic | $(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -DXVFS_MODE_FLEXIBLE -x c - -shared -o xvfs_synthetic$(LIB_SUFFIX) $(LIBS)
 
 benchmark:
 	$(MAKE) clean all XVFS_ADD_CPPFLAGS="-UXVFS_DEBUG" XVFS_ADD_CFLAGS="-g0 -ggdb0 -s -O3"
