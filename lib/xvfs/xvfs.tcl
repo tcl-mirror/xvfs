@@ -169,7 +169,7 @@ proc ::xvfs::processDirectory {fsName directory {subDirectory ""}} {
 			file lstat $inputFile fileInfo
 		}
 		if {![info exists fileInfo]} {
-			::xvfs::_emitLine stderr "warning: Unable to access $inputFile, skipping"
+			puts stderr "warning: Unable to access $inputFile, skipping"
 		}
 		
 		lappend children [file tail $file]
