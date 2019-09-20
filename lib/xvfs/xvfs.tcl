@@ -222,7 +222,7 @@ proc ::xvfs::main {argv} {
 			"--name" {
 				set fsName $val
 			}
-			"--output" {
+			"--output" - "--header" {
 				# Ignored, handled as part of some other process
 			}
 			default {
@@ -268,6 +268,16 @@ proc ::xvfs::setOutputChannel {channel} {
 proc ::xvfs::setOutputVariable {variable} {
 	uplevel #0 { package require minirivet }
 	tailcall ::minirivet::setOutputVariable $variable
+}
+
+proc ::xvfs::staticIncludeHeaderData {headerData} {
+	set ::xvfs::xvfsCoreH $headerData
+}
+
+proc ::xvfs::staticIncludeHeader {pathToHeaderFile} {
+	set fd [open $pathToHeaderFile]
+	::xvfs::staticIncludeHeaderData [read $fd]
+	close $fd
 }
 
 package provide xvfs 1

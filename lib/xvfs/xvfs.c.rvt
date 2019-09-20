@@ -1,4 +1,8 @@
-#include <xvfs-core.h>
+<?
+	if {[info exists ::xvfs::xvfsCoreH]} {
+?><?= $::xvfs::xvfsCoreH ?><?
+	} else {
+?>#include <xvfs-core.h><? } ?>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <string.h>

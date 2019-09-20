@@ -18,6 +18,9 @@ foreach {arg val} $argv {
 		"--output" {
 			set outputFile $val
 		}
+		"--header" {
+			set headerFile $val
+		}
 	}
 }
 
@@ -50,6 +53,9 @@ switch -- $mode {
 			::xvfs::setOutputChannel $fd
 		}
 
+		if {[info exists headerFile]} {
+			::xvfs::staticIncludeHeader $headerFile
+		}
 		::xvfs::run $argv
 
 		if {[info exists fd]} {
