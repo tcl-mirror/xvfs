@@ -166,7 +166,7 @@ proc ::xvfs::processDirectory {fsName directory {subDirectory ""}} {
 		set outputFile [file join $outputDirectory [encoding convertto utf-8 $file]]
 
 		if {[info command ::xvfs::callback::setOutputFileName] ne ""} {
-			set outputFile [::xvfs::callback::setOutputFileName $workingDirectory $inputFile $outputDirectory $outputFile]
+			set outputFile [::xvfs::callback::setOutputFileName $file $workingDirectory $inputFile $outputDirectory $outputFile]
 			if {$outputFile eq ""} {
 				continue
 			}
