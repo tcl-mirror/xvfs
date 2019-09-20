@@ -8,19 +8,27 @@ proc ::xvfs::callback::setOutputFileName {args} {
 	return "/"
 }
 
+dict set ::myOwnVFS "" {
+	type directory
+	children {foo xvfs-create-synthetic}
+}
+dict set ::myOwnVFS "foo" {
+	type file
+	fileContents "abc"
+}
+dict set ::myOwnVFS "xvfs-create-synthetic" {
+	type file
+}
+
 proc ::xvfs::callback::addOutputFiles {fsName} {
-	::xvfs::processFile $fsName "" "" {
-		type directory
-		children "foo"
+	dict for {outputName fileContentsDict} $::myOwnVFS {
+		set inputFile $outputName
+		if {[dict exists $fileContentsDict inputFile]} {
+			set inputFile [dict get $fileContentsDict inputFile]
+		}
+		::xvfs::processFile $fsName $inputFile $outputName $fileContentsDict
 	}
-	::xvfs::processFile $fsName "" "foo" {
-		type file
-		fileContents "abc"
-	}
-	::xvfs::processFile $fsName "./xvfs-create-synthetic" "xvfs-create-synthetic" {
-		type file
-	}
-	return [list "" "foo" "xvfs-create-synthetic"]
+	return [dict keys $::myOwnVFS]
 }
 
 ::xvfs::run --directory [pwd] --name synthetic
