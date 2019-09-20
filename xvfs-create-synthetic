@@ -1,0 +1,23 @@
+#! /usr/bin/env tclsh
+
+set sourceDirectory [file dirname [file normalize [info script]]]
+lappend auto_path [file join $sourceDirectory lib]
+package require xvfs
+
+proc ::xvfs::callback::setOutputFileName {args} {
+	return "/"
+}
+
+proc ::xvfs::callback::addOutputFiles {fsName} {
+	::xvfs::processFile $fsName "" "" {
+		type directory
+		children "foo"
+	}
+	::xvfs::processFile $fsName "" "foo" {
+		type file
+		fileContents "abc"
+	}
+	return [list "" "foo"]
+}
+
+::xvfs::run --directory [pwd] --name synthetic
