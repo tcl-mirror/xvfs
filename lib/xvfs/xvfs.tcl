@@ -1,6 +1,7 @@
 #! /usr/bin/env tclsh
 
 namespace eval ::xvfs {}
+namespace eval ::xvfs::callback {}
 
 set ::xvfs::_xvfsDir [file dirname [info script]]
 
@@ -163,6 +164,13 @@ proc ::xvfs::processDirectory {fsName directory {subDirectory ""}} {
 
 		set inputFile [file join $workingDirectory $file]
 		set outputFile [file join $outputDirectory [encoding convertto utf-8 $file]]
+
+		if {[info command ::xvfs::callback::setOutputFileName] ne ""} {
+			set outputFile [::xvfs::callback::setOutputFileName $workingDirectory $inputFile $outputDirectory $outputFile]
+			if {$outputFile eq ""} {
+				continue
+			}
+		}
 
 		unset -nocomplain fileInfo
 		catch {
