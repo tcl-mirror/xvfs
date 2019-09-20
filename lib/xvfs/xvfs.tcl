@@ -10,11 +10,11 @@ proc ::xvfs::_emitLine {line} {
 proc ::xvfs::printHelp {channel {errors ""}} {
 	if {[llength $errors] != 0} {
 		foreach error $errors {
-			::xvfs::_emitLine $channel "error: $error"
+			puts $channel "error: $error"
 		}
-		::xvfs::_emitLine $channel ""
+		puts $channel ""
 	}
-	::xvfs::_emitLine $channel "Usage: dir2c \[--help\] --directory <rootDirectory> --name <fsName>"
+	puts $channel "Usage: dir2c \[--help\] \[--output <filename>\] --directory <rootDirectory> --name <fsName>"
 	flush $channel
 }
 
