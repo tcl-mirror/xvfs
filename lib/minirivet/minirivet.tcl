@@ -2,6 +2,30 @@
 
 namespace eval ::minirivet {}
 
+if {![info exists ::minirivet::_outputChannel] && ![info exists ::minirivet::_outputVariable]} {
+	set ::minirivet::_outputChannel stdout
+}
+
+proc ::minirivet::setOutputChannel {channel} {
+	unset -nocomplain ::minirivet::_outputVariable
+	set ::minirivet::_outputChannel $channel
+}
+
+proc ::minirivet::setOutputVar {variable} {
+	unset -nocomplain ::minirivet::_outputChannel
+	set ::minirivet::_outputVariable $variable
+}
+
+proc ::minirivet::_emitOutput {string} {
+	if {[info exists ::minirivet::_outputChannel]} {
+		puts -nonewline $::minirivet::_outputChannel $string
+	}
+	if {[info exists ::minirivet::_outputVariable]} {
+		append $::minirivet::_outputVariable $string
+	}
+	return
+}
+
 proc ::minirivet::parseStringToCode {string} {
 	set code ""
 	while {$string ne ""} {
@@ -10,7 +34,7 @@ proc ::minirivet::parseStringToCode {string} {
 			set endIndex [expr {[string length $string] + 1}]
 		}
 
-		append code [list puts -nonewline [string range $string 0 $endIndex-1]] "; "
+		append code [list ::minirivet::_emitOutput [string range $string 0 $endIndex-1]] "; "
 		set string [string range $string $endIndex end]
 		set endIndex [string first "?>" $string]
 		if {$endIndex == -1} {
@@ -20,7 +44,7 @@ proc ::minirivet::parseStringToCode {string} {
 		set work [string range $string 0 2]
 		if {$work eq "<?="} {
 			set startIndex 3
-			append code "puts -nonewline [string trim [string range $string 3 $endIndex-1]]; "
+			append code "::minirivet::_emitOutput [string trim [string range $string 3 $endIndex-1]]; "
 		} else {
 			append code [string range $string 2 $endIndex-1] "\n"
 		}
