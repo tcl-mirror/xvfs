@@ -6,7 +6,11 @@ set ::xvfs::_xvfsDir [file dirname [info script]]
 
 # Functions
 proc ::xvfs::_emitLine {line} {
-	::minirivet::_emitOutput "${line}\n"
+	if {[info command ::minirivet::_emitOutput] ne ""} {
+		::minirivet::_emitOutput "${line}\n"
+	} else {
+		puts $line
+	}
 }
 
 proc ::xvfs::printHelp {channel {errors ""}} {
