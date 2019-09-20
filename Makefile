@@ -45,6 +45,12 @@ xvfs-create-standalone: $(shell find lib -type f) xvfs-create xvfs-core.c xvfs-c
 	chmod +x xvfs-create-standalone.new
 	mv xvfs-create-standalone.new xvfs-create-standalone
 
+xvfs_random$(LIB_SUFFIX): $(shell find example -type f) $(shell find lib -type f) lib/xvfs/xvfs.c.rvt xvfs-create-random Makefile
+	./xvfs-create-random | $(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -DXVFS_MODE_STANDALONE -x c - -shared -o xvfs_random$(LIB_SUFFIX) $(LIBS)
+
+xvfs_synthetic$(LIB_SUFFIX): $(shell find lib -type f) lib/xvfs/xvfs.c.rvt xvfs-create-synthetic Makefile
+	./xvfs-create-synthetic | $(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -DXVFS_MODE_STANDALONE -x c - -shared -o xvfs_synthetic$(LIB_SUFFIX) $(LIBS)
+
 benchmark:
 	$(MAKE) clean all XVFS_ADD_CPPFLAGS="-UXVFS_DEBUG" XVFS_ADD_CFLAGS="-g0 -ggdb0 -s -O3"
 	./benchmark.tcl
@@ -83,6 +89,7 @@ clean:
 	rm -f example-standalone.gcda example-standalone.gcno
 	rm -f example-client.gcda example-client.gcno
 	rm -f example-flexible.gcda example-flexible.gcno
+	rm -f xvfs_random$(LIB_SUFFIX) xvfs_synthetic$(LIB_SUFFIX)
 	rm -f xvfs.gcda xvfs.gcno
 	rm -f __test__.tcl
 	rm -f xvfs-test-coverage.info
