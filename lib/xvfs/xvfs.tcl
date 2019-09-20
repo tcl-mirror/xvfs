@@ -99,12 +99,16 @@ proc ::xvfs::processFile {fsName inputFile outputFile fileInfoDict} {
 	switch -exact -- $fileInfo(type) {
 		"file" {
 			set type "XVFS_FILE_TYPE_REG"
-			set fd [open $inputFile]
-			fconfigure $fd -encoding binary -translation binary -blocking true
-			set data [read $fd]
+			if {[info exists fileInfo(fileContents)]} {
+				set data $fileInfo(fileContents)
+			} else {
+				set fd [open $inputFile]
+				fconfigure $fd -encoding binary -translation binary -blocking true
+				set data [read $fd]
+				close $fd
+			}
 			set size [string length $data]
 			set data [string trimleft [binaryToCHex $data "\t\t\t"]]
-			close $fd
 		}
 		"directory" {
 			set type "XVFS_FILE_TYPE_DIR"
@@ -205,6 +209,10 @@ proc ::xvfs::processDirectory {fsName directory {subDirectory ""}} {
 	lappend outputFiles $outputFile
 
 	if {$isTopLevel} {
+		if {[info command ::xvfs::callback::addOutputFiles] ne ""} {
+			lappend outputFiles {*}[::xvfs::callback::addOutputFiles]
+		}
+
 		::xvfs::_emitLine "\};"
 	}
 
