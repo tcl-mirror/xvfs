@@ -47,7 +47,7 @@ struct xvfs_file_data {
 	if {$::xvfs::hashNameThreshold < 0} {
 		set ::xvfs::hashNameThreshold [expr {2**31}]
 	}
-	xvfs::main $argv
+	xvfs::main $::xvfs::argv
 
 	proc emitFilenameVerification {indentLevel outputFileNameLen outputFileIndexes} {
 		set indent [string repeat "\t" $indentLevel]

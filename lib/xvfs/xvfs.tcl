@@ -2,6 +2,8 @@
 
 namespace eval ::xvfs {}
 
+set ::xvfs::_xvfsDir [file dirname [info script]]
+
 # Functions
 proc ::xvfs::_emitLine {line} {
 	::minirivet::_emitOutput "${line}\n"
@@ -246,5 +248,10 @@ proc ::xvfs::main {argv} {
 	set ::xvfs::fsName $fsName
 	set ::xvfs::rootDirectory $rootDirectory
 }
+
+proc ::xvfs::run {} {
+	::minirivet::parse [file join $::xvfs::_xvfsDir xvfs.c.rvt]
+}
+
 
 package provide xvfs 1

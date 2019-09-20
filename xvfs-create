@@ -4,7 +4,7 @@ set sourceDirectory [file dirname [file normalize [info script]]]
 
 lappend auto_path [file join $sourceDirectory lib]
 
-set template [file join $sourceDirectory xvfs.c.rvt]
+set template [file join $sourceDirectory lib xvfs xvfs.c.rvt]
 
 package require minirivet
 
@@ -48,7 +48,9 @@ switch -- $mode {
 			::minirivet::setOutputChannel $fd
 		}
 
-		::minirivet::parse $template
+		package require xvfs
+		set ::xvfs::argv $argv
+		::xvfs::run
 
 		if {[info exists fd]} {
 			close $fd
@@ -77,9 +79,23 @@ switch -- $mode {
 		puts [list namespace eval ::minirivet {}]
 		puts [list set ::minirivet::_outputChannel stdout]
 		puts [list proc ::minirivet::_emitOutput [info args ::minirivet::_emitOutput] [info body ::minirivet::_emitOutput]]
+		puts ""
 		puts [read [open $xvfs_tcl]]
 		puts ""
-		puts [list puts -nonewline $core_header_data]
+		puts {set ::xvfs::argv $::argv}
+		puts {
+			foreach {arg val} $argv {
+				switch -exact -- $arg {
+					"--output" {
+						set ::minirivet::_outputChannel [open $val w]
+					}
+				}
+			}
+		}
+		puts ""
+		puts [list ::minirivet::_emitOutput $core_header_data]
+		puts ""
+
 		puts ""
 		puts [string map $cleanup [::minirivet::parseStringToCode [read [open $template]]]]
 	}

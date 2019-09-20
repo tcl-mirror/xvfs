@@ -9,7 +9,7 @@ LIB_SUFFIX    := $(shell . "${TCL_CONFIG_SH}"; echo "$${TCL_SHLIB_SUFFIX:-.so}")
 
 all: example-standalone$(LIB_SUFFIX) example-client$(LIB_SUFFIX) example-flexible$(LIB_SUFFIX) xvfs$(LIB_SUFFIX)
 
-example.c: $(shell find example -type f) $(shell find lib -type f) xvfs.c.rvt xvfs-create Makefile
+example.c: $(shell find example -type f) $(shell find lib -type f) lib/xvfs/xvfs.c.rvt xvfs-create Makefile
 	./xvfs-create --directory example --name example > example.c.new
 	mv example.c.new example.c
 
@@ -39,7 +39,7 @@ xvfs$(LIB_SUFFIX): xvfs.o Makefile
 
 # xvfs-create-standalone is a standalone (i.e., no external dependencies
 # like lib/minirivet, xvfs-core.c, etc) version of "xvfs-create"
-xvfs-create-standalone: $(shell find lib -type f) xvfs-create xvfs-core.c xvfs-core.h xvfs.c.rvt Makefile
+xvfs-create-standalone: $(shell find lib -type f) xvfs-create xvfs-core.c xvfs-core.h lib/xvfs/xvfs.c.rvt Makefile
 	rm -f xvfs-create-standalone.new xvfs-create-standalone
 	./xvfs-create --dump-tcl --remove-debug > xvfs-create-standalone.new
 	chmod +x xvfs-create-standalone.new
