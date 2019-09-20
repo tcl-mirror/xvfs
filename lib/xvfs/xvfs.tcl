@@ -48,7 +48,7 @@ proc ::xvfs::sanitizeCStringList {list {prefix ""} {width 80}} {
 		set rowString "${prefix}${rowString}"
 		if {[string length $rowString] > $width} {
 			set row [list]
-			lappend lines $rowString
+			lappend lines "${rowString},"
 			unset rowString
 		}
 	}
