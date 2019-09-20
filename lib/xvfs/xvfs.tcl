@@ -250,8 +250,18 @@ proc ::xvfs::main {argv} {
 }
 
 proc ::xvfs::run {} {
+	uplevel #0 { package require minirivet }
 	::minirivet::parse [file join $::xvfs::_xvfsDir xvfs.c.rvt]
 }
 
+proc ::xvfs::setOutputChannel {channel} {
+	uplevel #0 { package require minirivet }
+	tailcall ::minirivet::setOutputChannel $channel
+}
+
+proc ::xvfs::setOutputVariable {variable} {
+	uplevel #0 { package require minirivet }
+	tailcall ::minirivet::setOutputVariable $variable
+}
 
 package provide xvfs 1

@@ -43,12 +43,13 @@ proc remove_debug {input} {
 
 switch -- $mode {
 	"run" {
+		package require xvfs
+
 		if {[info exists outputFile]} {
 			set fd [open $outputFile w]
-			::minirivet::setOutputChannel $fd
+			::xvfs::setOutputChannel $fd
 		}
 
-		package require xvfs
 		set ::xvfs::argv $argv
 		::xvfs::run
 
