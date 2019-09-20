@@ -18,15 +18,25 @@
 #  undef HAVE_STRUCT_STAT_ST_BLOCKS
 #endif
 
+#ifndef MIN
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#endif
 
+#ifndef HAVE_DEFINED_XVFS_FILE_TYPE_T
+#define HAVE_DEFINED_XVFS_FILE_TYPE_T 1
 typedef enum {
 	XVFS_FILE_TYPE_REG,
 	XVFS_FILE_TYPE_DIR
 } xvfs_file_type_t;
+#endif
 
+#ifndef HAVE_DEFINED_XVFS_SIZE_T
+#define HAVE_DEFINED_XVFS_SIZE_T 1
 typedef Tcl_WideInt xvfs_size_t;
+#endif
 
+#ifndef HAVE_DEFINED_XVFS_FILE_DATA
+#define HAVE_DEFINED_XVFS_FILE_DATA 1
 struct xvfs_file_data {
 	const char          *name;
 	xvfs_file_type_t    type;
@@ -36,6 +46,7 @@ struct xvfs_file_data {
 		const char          **dirChildren;
 	} data;
 };
+#endif
 
 <?
 	package require xvfs
