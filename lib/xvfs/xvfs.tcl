@@ -168,6 +168,7 @@ proc ::xvfs::processDirectory {fsName directory {subDirectory ""}} {
 
 		set inputFile [file join $workingDirectory $file]
 		set outputFile [file join $outputDirectory [encoding convertto utf-8 $file]]
+		set subDirectoryName [file join $outputDirectory $file]
 
 		if {[info command ::xvfs::callback::setOutputFileName] ne ""} {
 			set outputFile [::xvfs::callback::setOutputFileName $file $workingDirectory $inputFile $outputDirectory $outputFile]
@@ -183,11 +184,9 @@ proc ::xvfs::processDirectory {fsName directory {subDirectory ""}} {
 		if {![info exists fileInfo]} {
 			puts stderr "warning: Unable to access $inputFile, skipping"
 		}
-		
-		lappend children [file tail $file]
 
 		if {$fileInfo(type) eq "directory"} {
-			lappend subDirectories $outputFile
+			lappend subDirectories $subDirectoryName
 			continue
 		}
 
@@ -208,6 +207,16 @@ proc ::xvfs::processDirectory {fsName directory {subDirectory ""}} {
 	if {$outputFile ne "/"} {
 		unset -nocomplain fileInfo
 		file stat $inputFile fileInfo
+		set children [list]
+		set outputFileLen [string length $outputFile]
+		foreach child $outputFiles {
+			if {[string range /$child 0 $outputFileLen] eq "/${outputFile}"} {
+				set child [string trimleft [string range $child $outputFileLen end] /]
+				if {![string match "*/*" $child]} {
+					lappend children $child
+				}
+			}
+		}
 		set fileInfo(children) $children
 
 		processFile $fsName $inputFile $outputFile [array get fileInfo]
