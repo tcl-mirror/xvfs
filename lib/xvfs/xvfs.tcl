@@ -171,7 +171,7 @@ proc ::xvfs::processDirectory {fsName directory {subDirectory ""}} {
 
 		if {[info command ::xvfs::callback::setOutputFileName] ne ""} {
 			set outputFile [::xvfs::callback::setOutputFileName $file $workingDirectory $inputFile $outputDirectory $outputFile]
-			if {$outputFile eq ""} {
+			if {$outputFile eq "/"} {
 				continue
 			}
 		}
@@ -201,16 +201,22 @@ proc ::xvfs::processDirectory {fsName directory {subDirectory ""}} {
 	
 	set inputFile $directory
 	set outputFile $outputDirectory
-	unset -nocomplain fileInfo
-	file stat $inputFile fileInfo
-	set fileInfo(children) $children
+	if {[info command ::xvfs::callback::setOutputFileName] ne ""} {
+		set outputFile [::xvfs::callback::setOutputFileName $directory $directory $inputFile $outputDirectory $outputFile]
+	}
 
-	processFile $fsName $inputFile $outputFile [array get fileInfo]
-	lappend outputFiles $outputFile
+	if {$outputFile ne "/"} {
+		unset -nocomplain fileInfo
+		file stat $inputFile fileInfo
+		set fileInfo(children) $children
+
+		processFile $fsName $inputFile $outputFile [array get fileInfo]
+		lappend outputFiles $outputFile
+	}
 
 	if {$isTopLevel} {
 		if {[info command ::xvfs::callback::addOutputFiles] ne ""} {
-			lappend outputFiles {*}[::xvfs::callback::addOutputFiles]
+			lappend outputFiles {*}[::xvfs::callback::addOutputFiles $fsName]
 		}
 
 		::xvfs::_emitLine "\};"
@@ -269,10 +275,10 @@ proc ::xvfs::main {argv} {
 	set ::xvfs::rootDirectory $rootDirectory
 }
 
-proc ::xvfs::run {argv} {
+proc ::xvfs::run {args} {
 	uplevel #0 { package require minirivet }
 
-	set ::xvfs::argv $argv
+	set ::xvfs::argv $args
 	::minirivet::parse [file join $::xvfs::_xvfsDir xvfs.c.rvt]
 }
 
