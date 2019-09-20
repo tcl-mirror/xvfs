@@ -23,3 +23,5 @@ __test__.tcl
 sdks
 xvfs_random.so
 xvfs_synthetic.so
+profile
+oprofile_data

@@ -51,7 +51,7 @@ xvfs_random$(LIB_SUFFIX): $(shell find example -type f) $(shell find lib -type f
 xvfs_synthetic$(LIB_SUFFIX): $(shell find lib -type f) lib/xvfs/xvfs.c.rvt xvfs-create-synthetic Makefile
 	./xvfs-create-synthetic | $(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -DXVFS_MODE_FLEXIBLE -x c - -shared -o xvfs_synthetic$(LIB_SUFFIX) $(LIBS)
 
-benchmark:
+do-benchmark:
 	$(MAKE) clean all XVFS_ADD_CPPFLAGS="-UXVFS_DEBUG" XVFS_ADD_CFLAGS="-g0 -ggdb0 -s -O3"
 	./benchmark.tcl
 
@@ -68,7 +68,9 @@ test: example-standalone$(LIB_SUFFIX) xvfs$(LIB_SUFFIX) example-client$(LIB_SUFF
 	done
 	rm -f __test__.tcl
 
-coverage:
+do-test: test
+
+do-coverage:
 	$(MAKE) clean
 	$(MAKE) XVFS_ADD_CFLAGS=-coverage XVFS_ADD_LDFLAGS=-coverage
 	$(MAKE) test XVFS_TEST_EXIT_ON_FAILURE=0
@@ -78,6 +80,16 @@ coverage:
 	mkdir xvfs-test-coverage
 	genhtml xvfs-test-coverage.info --output-directory xvfs-test-coverage
 	rm -f xvfs-test-coverage.info
+
+profile: profile.c Makefile
+	rm -f example-client$(LIB_SUFFIX) xvfs$(LIB_SUFFIX)
+	$(MAKE) xvfs$(LIB_SUFFIX) example-client$(LIB_SUFFIX) XVFS_ADD_CPPFLAGS="-UXVFS_DEBUG"
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -UUSE_TCL_STUBS ./xvfs$(LIB_SUFFIX) ./example-client$(LIB_SUFFIX) -o profile profile.c -ltcl
+
+do-profile: profile Makefile
+	rm -rf oprofile_data
+	LD_LIBRARY_PATH='$(shell pwd):$(LD_LIBRARY_PATH)' operf ./profile
+	opreport
 
 clean:
 	rm -f xvfs-create-standalone.new xvfs-create-standalone
@@ -92,9 +104,11 @@ clean:
 	rm -f xvfs_random$(LIB_SUFFIX) xvfs_synthetic$(LIB_SUFFIX)
 	rm -f xvfs.gcda xvfs.gcno
 	rm -f __test__.tcl
+	rm -f profile
+	rm -rf oprofile_data
 	rm -f xvfs-test-coverage.info
 	rm -rf xvfs-test-coverage
 
 distclean: clean
 
-.PHONY: all clean distclean test coverage benchmark
+.PHONY: all clean distclean test do-test do-coverage do-benchmark do-profile
