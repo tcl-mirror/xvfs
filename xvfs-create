@@ -13,6 +13,14 @@ if {[lindex $argv 0] == "--dump-tcl"} {
 	set mode "dump-tcl"
 }
 
+foreach {arg val} $argv {
+	switch -exact -- $arg {
+		"--output" {
+			set outputFile $val
+		}
+	}
+}
+
 proc remove_debug {input} {
 	set output [list]
 
@@ -35,7 +43,16 @@ proc remove_debug {input} {
 
 switch -- $mode {
 	"run" {
+		if {[info exists outputFile]} {
+			set fd [open $outputFile w]
+			::minirivet::setOutputChannel $fd
+		}
+
 		::minirivet::parse $template
+
+		if {[info exists fd]} {
+			close $fd
+		}
 	}
 	"dump-tcl" {
 		set xvfs_tcl [file join $sourceDirectory lib xvfs xvfs.tcl]
@@ -57,6 +74,9 @@ switch -- $mode {
 
 		puts "#! /usr/bin/env tclsh"
 		puts ""
+		puts [list namespace eval ::minirivet {}]
+		puts [list set ::minirivet::_outputChannel stdout]
+		puts [list proc ::minirivet::_emitOutput [info args ::minirivet::_emitOutput] [info body ::minirivet::_emitOutput]]
 		puts [read [open $xvfs_tcl]]
 		puts ""
 		puts [list puts -nonewline $core_header_data]

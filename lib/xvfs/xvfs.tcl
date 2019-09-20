@@ -3,14 +3,18 @@
 namespace eval ::xvfs {}
 
 # Functions
+proc ::xvfs::_emitLine {line} {
+	::minirivet::_emitOutput "${line}\n"
+}
+
 proc ::xvfs::printHelp {channel {errors ""}} {
 	if {[llength $errors] != 0} {
 		foreach error $errors {
-			puts $channel "error: $error"
+			::xvfs::_emitLine $channel "error: $error"
 		}
-		puts $channel ""
+		::xvfs::_emitLine $channel ""
 	}
-	puts $channel "Usage: dir2c \[--help\] --directory <rootDirectory> --name <fsName>"
+	::xvfs::_emitLine $channel "Usage: dir2c \[--help\] --directory <rootDirectory> --name <fsName>"
 	flush $channel
 }
 
@@ -113,19 +117,19 @@ proc ::xvfs::processFile {fsName inputFile outputFile fileInfoDict} {
 		}
 	}
 
-	puts "\t\{"
-	puts "\t\t.name = \"[sanitizeCString $outputFile]\","
-	puts "\t\t.type = $type,"
-	puts "\t\t.size = $size,"
+	::xvfs::_emitLine "\t\{"
+	::xvfs::_emitLine "\t\t.name = \"[sanitizeCString $outputFile]\","
+	::xvfs::_emitLine "\t\t.type = $type,"
+	::xvfs::_emitLine "\t\t.size = $size,"
 	switch -exact -- $fileInfo(type) {
 		"file" {
-			puts "\t\t.data.fileContents = (const unsigned char *) $data"
+			::xvfs::_emitLine "\t\t.data.fileContents = (const unsigned char *) $data"
 		}
 		"directory" {
-			puts "\t\t.data.dirChildren  = $children"
+			::xvfs::_emitLine "\t\t.data.dirChildren  = $children"
 		}
 	}
-	puts "\t\},"
+	::xvfs::_emitLine "\t\},"
 }
 
 proc ::xvfs::processDirectory {fsName directory {subDirectory ""}} {
@@ -141,7 +145,7 @@ proc ::xvfs::processDirectory {fsName directory {subDirectory ""}} {
 	}
 
 	if {$isTopLevel} {
-		puts "static const struct xvfs_file_data xvfs_${fsName}_data\[\] = \{"
+		::xvfs::_emitLine "static const struct xvfs_file_data xvfs_${fsName}_data\[\] = \{"
 	}
 
 	# XXX:TODO: Include hidden files ?
@@ -159,7 +163,7 @@ proc ::xvfs::processDirectory {fsName directory {subDirectory ""}} {
 			file lstat $inputFile fileInfo
 		}
 		if {![info exists fileInfo]} {
-			puts stderr "warning: Unable to access $inputFile, skipping"
+			::xvfs::_emitLine stderr "warning: Unable to access $inputFile, skipping"
 		}
 		
 		lappend children [file tail $file]
@@ -187,7 +191,7 @@ proc ::xvfs::processDirectory {fsName directory {subDirectory ""}} {
 	lappend outputFiles $outputFile
 
 	if {$isTopLevel} {
-		puts "\};"
+		::xvfs::_emitLine "\};"
 	}
 
 	return $outputFiles
@@ -211,6 +215,9 @@ proc ::xvfs::main {argv} {
 			}
 			"--name" {
 				set fsName $val
+			}
+			"--output" {
+				# Ignored, handled as part of some other process
 			}
 			default {
 				printHelp stderr [list "Invalid option: $arg $val"]
