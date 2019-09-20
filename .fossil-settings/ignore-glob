@@ -23,5 +23,8 @@ __test__.tcl
 sdks
 xvfs_random.so
 xvfs_synthetic.so
-profile
+profile-bare
+profile-gperf
 oprofile_data
+gmon.out
+callgrind.out

@@ -81,15 +81,21 @@ do-coverage:
 	genhtml xvfs-test-coverage.info --output-directory xvfs-test-coverage
 	rm -f xvfs-test-coverage.info
 
-profile: profile.c Makefile
-	rm -f example-client$(LIB_SUFFIX) xvfs$(LIB_SUFFIX)
-	$(MAKE) xvfs$(LIB_SUFFIX) example-client$(LIB_SUFFIX) XVFS_ADD_CPPFLAGS="-UXVFS_DEBUG"
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -UUSE_TCL_STUBS ./xvfs$(LIB_SUFFIX) ./example-client$(LIB_SUFFIX) -o profile profile.c -ltcl
+profile-bare: profile.c example.c xvfs-core.h xvfs-core.c Makefile
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -UUSE_TCL_STUBS -o profile-bare profile.c -ltcl
 
-do-profile: profile Makefile
+profile-gperf: profile.c example.c xvfs-core.h xvfs-core.c Makefile
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -pg -UUSE_TCL_STUBS -o profile-gperf profile.c -ltcl
+
+do-profile: profile-bare profile-gperf Makefile
 	rm -rf oprofile_data
-	LD_LIBRARY_PATH='$(shell pwd):$(LD_LIBRARY_PATH)' operf ./profile
+	rm -f gmon.out callgrind.out
+	operf ./profile-bare
 	opreport
+	./profile-gperf
+	gprof ./profile-gperf
+	valgrind --tool=callgrind --callgrind-out-file=callgrind.out ./profile-bare 10 2
+	callgrind_annotate callgrind.out
 
 clean:
 	rm -f xvfs-create-standalone.new xvfs-create-standalone
@@ -104,7 +110,9 @@ clean:
 	rm -f xvfs_random$(LIB_SUFFIX) xvfs_synthetic$(LIB_SUFFIX)
 	rm -f xvfs.gcda xvfs.gcno
 	rm -f __test__.tcl
-	rm -f profile
+	rm -f profile-bare profile-gperf
+	rm -f gmon.out
+	rm -f callgrind.out
 	rm -rf oprofile_data
 	rm -f xvfs-test-coverage.info
 	rm -rf xvfs-test-coverage
