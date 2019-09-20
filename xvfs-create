@@ -50,8 +50,7 @@ switch -- $mode {
 			::xvfs::setOutputChannel $fd
 		}
 
-		set ::xvfs::argv $argv
-		::xvfs::run
+		::xvfs::run $argv
 
 		if {[info exists fd]} {
 			close $fd

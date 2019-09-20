@@ -253,8 +253,10 @@ proc ::xvfs::main {argv} {
 	set ::xvfs::rootDirectory $rootDirectory
 }
 
-proc ::xvfs::run {} {
+proc ::xvfs::run {argv} {
 	uplevel #0 { package require minirivet }
+
+	set ::xvfs::argv $argv
 	::minirivet::parse [file join $::xvfs::_xvfsDir xvfs.c.rvt]
 }
 
