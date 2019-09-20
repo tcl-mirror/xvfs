@@ -21,3 +21,5 @@ xvfs-create-standalone
 xvfs-test-coverage
 __test__.tcl
 sdks
+xvfs_random.so
+xvfs_synthetic.so
