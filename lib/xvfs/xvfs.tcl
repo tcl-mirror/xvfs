@@ -311,4 +311,66 @@ proc ::xvfs::staticIncludeHeader {pathToHeaderFile} {
 	close $fd
 }
 
+proc ::xvfs::generatePerfectHashFunctionCall {cVarName cVarLength invalidValue nameList} {
+	set minVal 0
+	set maxVal [llength $nameList]
+	set testExpr {([zlib adler32 $nameItem $alpha] + $beta) % $gamma}
+	set testExprC {((Tcl_ZlibAdler32($alpha, (unsigned char *) $cVarName, $cVarLength) + $beta) % $gamma)}
+
+	set round -1
+
+	set beta 0
+	set gamma $maxVal
+
+	while true {
+		incr round
+
+		set alpha $round
+		set gamma [expr {($round % ($maxVal + 1)) + $maxVal}]
+
+		set idx -1
+		set seenIndexes [list]
+		set failed false
+		foreach nameItem $nameList {
+			incr idx
+
+			set testExprVal [expr $testExpr]
+
+			if {$testExprVal in $seenIndexes} {
+				incr alpha
+				set failed true
+				break
+			}
+
+			lappend seenIndexes $testExprVal
+		}
+
+		if {!$failed} {
+			break
+		}
+	}
+
+	unset -nocomplain mapArray
+	for {set idx 0} {$idx < $gamma} {incr idx} {
+		set mapArray($idx) $invalidValue
+	}
+
+	set idx -1
+	foreach nameItem $nameList {
+		incr idx
+
+		set mapArray([expr $testExpr]) $idx
+	}
+
+	set map "(long\[\])\{"
+	for {set idx 0} {$idx < $gamma} {incr idx} {
+		append map "$mapArray($idx), "
+	}
+	set map [string range $map 0 end-2]
+	append map "\}\[[subst $testExprC]\]"
+	set phfCall $map
+
+	return $phfCall
+}
+
 package provide xvfs 1
