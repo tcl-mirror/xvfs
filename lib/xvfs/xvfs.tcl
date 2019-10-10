@@ -311,38 +311,89 @@ proc ::xvfs::staticIncludeHeader {pathToHeaderFile} {
 	close $fd
 }
 
-proc ::xvfs::generatePerfectHashFunctionCall {cVarName cVarLength invalidValue nameList} {
+proc ::xvfs::generatePerfectHashFunctionCall {cVarName cVarLength invalidValue nameList args} {
+	array set config {
+		preferMinimalHashSize   8
+		switchToNonMinimalHash  1048576
+		triesAtHashSize         1024
+		maxIntermediateMultiple 8
+	}
+
+	foreach {configKey configVal} $args {
+		if {![info exists config($configKey)]} {
+			error "Invalid option: $configKey"
+		}
+	}
+	array set config $args
+
 	set minVal 0
 	set maxVal [llength $nameList]
-	set testExpr {([zlib adler32 $nameItem $alpha] + $beta) % $gamma}
-	set testExprC {((Tcl_ZlibAdler32($alpha, (unsigned char *) $cVarName, $cVarLength) + $beta) % $gamma)}
+	set testExpr(0) {([zlib adler32 $nameItem $alpha] + $beta) % $gamma}
+	set testExpr(1) {([zlib crc32 $nameItem $alpha] + $beta) % $gamma}
+	set testExpr(2) {([zlib adler32 $nameItem [zlib crc32 $nameItem $alpha]] + $beta) % $gamma}
+	set testExprC(0) {((Tcl_ZlibAdler32(${alpha}LU, (unsigned char *) $cVarName, $cVarLength) + ${beta}LU) % ${gamma}LU)}
+	set testExprC(1) {((Tcl_ZlibCRC32(${alpha}LU, (unsigned char *) $cVarName, $cVarLength) + ${beta}LU) % ${gamma}LU)}
+	set testExprC(2) {((Tcl_ZlibAdler32(Tcl_ZlibCRC32(${alpha}LU, (unsigned char *) $cVarName, $cVarLength), (unsigned char *) $cVarName, $cVarLength) + ${beta}LU) % ${gamma}LU)}
+
+	set minimal false
+	if {$maxVal < $config(preferMinimalHashSize)} {
+		set minimal true
+	}
 
 	set round -1
 
-	set beta 0
-	set gamma $maxVal
+	set gammaRoundMod [expr {$maxVal * ($config(maxIntermediateMultiple) - 1)}]
 
 	while true {
+		if {$minimal && $round > $config(switchToNonMinimalHash)} {
+			set minimal false
+			set round -1
+		}
 		incr round
 
-		set alpha $round
-		set gamma [expr {($round % ($maxVal + 1)) + $maxVal}]
+		if {$minimal} {
+			set gamma [expr {$maxVal + ($round % ($maxVal * 4))}]
+		} else {
+			set gamma [expr {$maxVal + ($round % $gammaRoundMod)}]
+		}
 
-		set idx -1
-		set seenIndexes [list]
-		set failed false
-		foreach nameItem $nameList {
-			incr idx
+		for {set try 0} {$try < $config(triesAtHashSize)} {incr try} {
+			set alpha [expr {entier(rand() * (2**31))}]
+			set beta  [expr {entier(rand() * (2**31))}]
 
-			set testExprVal [expr $testExpr]
+			foreach {testExprID testExprContents} [array get testExpr] {
+				set idx -1
+				set seenIndexes [list]
+				set failed false
+				foreach nameItem $nameList {
 
-			if {$testExprVal in $seenIndexes} {
-				incr alpha
-				set failed true
-				break
+					set testExprVal [expr $testExprContents]
+
+					if {$minimal} {
+						incr idx
+
+						if {$testExprVal != $idx} {
+							set failed true
+							break
+						}
+					} else {
+						if {$testExprVal in $seenIndexes} {
+							set failed true
+							break
+						}
+
+						lappend seenIndexes $testExprVal
+					}
+				}
+
+				if {!$failed} {
+					break
+				}
 			}
 
-			lappend seenIndexes $testExprVal
+			if {!$failed} {
+				break
+			}
 		}
 
 		if {!$failed} {
@@ -350,25 +401,30 @@ proc ::xvfs::generatePerfectHashFunctionCall {cVarName cVarLength invalidValue n
 		}
 	}
 
-	unset -nocomplain mapArray
-	for {set idx 0} {$idx < $gamma} {incr idx} {
-		set mapArray($idx) $invalidValue
-	}
+	if {$minimal} {
+		set phfCall [subst $testExprC($testExprID)]
+	} else {
+		unset -nocomplain mapArray
+		for {set idx 0} {$idx < $gamma} {incr idx} {
+			set mapArray($idx) $invalidValue
+		}
 
-	set idx -1
-	foreach nameItem $nameList {
-		incr idx
+		set idx -1
+		foreach nameItem $nameList {
+			incr idx
 
-		set mapArray([expr $testExpr]) $idx
-	}
+			set mapArray([expr $testExpr($testExprID)]) $idx
+		}
 
-	set map "(long\[\])\{"
-	for {set idx 0} {$idx < $gamma} {incr idx} {
-		append map "$mapArray($idx), "
+		set map "(long\[\])\{"
+		for {set idx 0} {$idx < $gamma} {incr idx} {
+			append map "$mapArray($idx), "
+		}
+		set map [string range $map 0 end-2]
+		append map "\}\[[subst $testExprC($testExprID)]\]"
+
+		set phfCall $map
 	}
-	set map [string range $map 0 end-2]
-	append map "\}\[[subst $testExprC]\]"
-	set phfCall $map
 
 	return $phfCall
 }

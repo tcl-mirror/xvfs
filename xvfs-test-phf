@@ -1,0 +1,25 @@
+#! /usr/bin/env tclsh
+
+set sourceDirectory [file dirname [file normalize [info script]]]
+
+lappend auto_path [file join $sourceDirectory lib]
+
+package require xvfs
+
+set list {
+	main.tcl foo fop gop top fooo lib/hello/hello.tcl lib/hello/pkgIndex.tcl lib/hello lib {}
+}
+
+for {set i 0} {$i < 2000} {incr i} {
+	lappend list $i
+}
+
+for {set idx 0} {$idx < [llength $list]} {incr idx} {
+	set subList [lrange $list 0 $idx]
+	puts "$idx ($subList):"
+	puts [time {
+		puts [::xvfs::generatePerfectHashFunctionCall pathName strlen(pathName) -1 $subList triesAtHashSize 1]
+	} 1]
+	puts ""
+}
+
