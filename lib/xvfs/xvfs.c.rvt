@@ -69,7 +69,7 @@ static long xvfs_<?= $::xvfs::fsName ?>_nameToIndex(const char *path) {
 	pathLen = strlen(path);
 
 	pathIndex = <?= [::xvfs::generatePerfectHashFunctionCall "path" pathLen XVFS_NAME_LOOKUP_ERROR $::xvfs::outputFiles] ?>;
-	if (pathIndex < 0 || pathIndex > <?= [llength $::xvfs::outputFiles] ?>) {
+	if (pathIndex < 0 || pathIndex >= <?= [llength $::xvfs::outputFiles] ?>) {
 		pathIndex = XVFS_NAME_LOOKUP_ERROR;
 	}
 
