@@ -311,14 +311,72 @@ proc ::xvfs::staticIncludeHeader {pathToHeaderFile} {
 	close $fd
 }
 
-proc ::xvfs::generatePerfectHashFunctionCall {cVarName cVarLength invalidValue nameList args} {
-	array set config {
-		preferMinimalHashSize   8
-		switchToNonMinimalHash  1048576
-		triesAtHashSize         1024
-		maxIntermediateMultiple 8
+proc ::xvfs::_tryFit {list} {
+	set idx -1
+	set lastItem -100000
+	foreach item $list {
+		incr idx
+
+		if {$item <= $lastItem} {
+			return ""
+		}
+
+		set difference [expr {$item - $idx}]
+		if {$idx != 0} {
+			set divisor [expr {$item / $idx}]
+		} else {
+			set divisor 1
+		}
+		lappend differences $difference
+		lappend divisors $divisor
+
+		set lastItem $item
 	}
 
+	foreach divisor [lrange $divisors 1 end] {
+		incr divisorCount
+		incr divisorValue $divisor
+	}
+	set divisor [expr {$divisorValue / $divisorCount}]
+
+	for {set i 0} {$i < [llength $list]} {incr i} {
+		lappend outList $i
+	}
+
+	set mapFunc " - ${difference}"
+
+	set newList [lmap v $list { expr "\$v${mapFunc}" }]
+	if {$newList eq $outList} {
+		return $mapFunc
+	}
+
+	if {$divisor != 1} {
+		set mapFunc " / ${divisor}"
+		set newList [lmap v $list { expr "\$v${mapFunc}" }]
+		if {$newList eq $outList} {
+			return $mapFunc
+		}
+
+		set subMapFunc [_tryFit $newList]
+		if {$subMapFunc != ""} {
+			return " / ${divisor}${subMapFunc}"
+		}
+	}
+
+	return ""
+}
+
+proc ::xvfs::generatePerfectHashFunctionCall {cVarName cVarLength invalidValue nameList args} {
+	# Manage config
+	## Default config
+	array set config {
+		useCacheFirst  false
+		cacheValue     true
+		enableCache    false
+	}
+	set config(cacheFile) [file join [file normalize ~/.cache] xvfs phf-cache.db]
+
+	## User config
 	foreach {configKey configVal} $args {
 		if {![info exists config($configKey)]} {
 			error "Invalid option: $configKey"
@@ -326,69 +384,71 @@ proc ::xvfs::generatePerfectHashFunctionCall {cVarName cVarLength invalidValue n
 	}
 	array set config $args
 
+	if {$config(enableCache)} {
+		package require sqlite3
+	}
+
+	# Adjustment for computing the expense of a function call by its length
+	# Calls that take longer should be made longer, so make CRC32 longer
+	# than Adler32
+	set lengthAdjustment [list Tcl_ZlibCRC32 Tcl_CRCxxx32]
+
+	# Check for a cached entry
+	if {$config(enableCache) && $config(useCacheFirst)} {
+		catch {
+			set hashKey $nameList
+
+			sqlite3 ::xvfs::phfCache $config(cacheFile)
+			::xvfs::phfCache eval {CREATE TABLE IF NOT EXISTS cache(hashKey PRIMARY KEY, function BLOB);}
+			::xvfs::phfCache eval {SELECT function FROM cache WHERE hashKey = $hashKey LIMIT 1;} cacheRow {}
+		}
+		catch {
+			::xvfs::phfCache close
+		}
+
+		if {[info exists cacheRow(function)]} {
+			set phfCall $cacheRow(function)
+			set phfCall [string map [list @@CVARNAME@@ $cVarName @@CVARLENGTH@@ $cVarLength @@INVALIDVALUE@@ $invalidValue] $phfCall]
+
+			return $phfCall
+		}
+	}
+
 	set minVal 0
 	set maxVal [llength $nameList]
-	set testExpr(0) {([zlib adler32 $nameItem $alpha] + $beta) % $gamma}
-	set testExpr(1) {([zlib crc32 $nameItem $alpha] + $beta) % $gamma}
-	set testExpr(2) {([zlib adler32 $nameItem [zlib crc32 $nameItem $alpha]] + $beta) % $gamma}
-	set testExprC(0) {((Tcl_ZlibAdler32(${alpha}LU, (unsigned char *) $cVarName, $cVarLength) + ${beta}LU) % ${gamma}LU)}
-	set testExprC(1) {((Tcl_ZlibCRC32(${alpha}LU, (unsigned char *) $cVarName, $cVarLength) + ${beta}LU) % ${gamma}LU)}
-	set testExprC(2) {((Tcl_ZlibAdler32(Tcl_ZlibCRC32(${alpha}LU, (unsigned char *) $cVarName, $cVarLength), (unsigned char *) $cVarName, $cVarLength) + ${beta}LU) % ${gamma}LU)}
+	set testExpr_(0) {[zlib adler32 $nameItem $alpha] % $gamma}
+	set testExpr(1) {[zlib crc32 $nameItem $alpha] % $gamma}
+	set testExpr_(2) {[zlib adler32 $nameItem [zlib crc32 $nameItem $alpha]] % $gamma}
+	set testExpr_(3) {[zlib crc32 $nameItem [zlib adler32 $nameItem $alpha]] % $gamma}
+	set testExprC(0) {((Tcl_ZlibAdler32(${alpha}LU, (unsigned char *) @@CVARNAME@@, @@CVARLENGTH@@) % ${gamma}LU)${fitMod})}
+	set testExprC(1) {((Tcl_ZlibCRC32(${alpha}LU, (unsigned char *) @@CVARNAME@@, @@CVARLENGTH@@) % ${gamma}LU)${fitMod})}
+	set testExprC(2) {((Tcl_ZlibAdler32(Tcl_ZlibCRC32(${alpha}LU, (unsigned char *) @@CVARNAME@@, @@CVARLENGTH@@), (unsigned char *) @@CVARNAME@@, @@CVARLENGTH@@) % ${gamma}LU)${fitMod})}
+	set testExprC(3) {((Tcl_ZlibCRC32(Tcl_ZlibAdler32(${alpha}LU, (unsigned char *) @@CVARNAME@@, @@CVARLENGTH@@), (unsigned char *) @@CVARNAME@@, @@CVARLENGTH@@) % ${gamma}LU)${fitMod})}
 
-	set minimal false
-	if {$maxVal < $config(preferMinimalHashSize)} {
-		set minimal true
+	# Short-circuit for known cases
+	if {$maxVal == 1} {
+		return 0
 	}
 
 	set round -1
 
-	set gammaRoundMod [expr {$maxVal * ($config(maxIntermediateMultiple) - 1)}]
-
 	while true {
-		if {$minimal && $round > $config(switchToNonMinimalHash)} {
-			set minimal false
-			set round -1
-		}
 		incr round
 
-		if {$minimal} {
-			set gamma [expr {$maxVal + ($round % ($maxVal * 4))}]
-		} else {
-			set gamma [expr {$maxVal + ($round % $gammaRoundMod)}]
-		}
+		set gamma [expr {$maxVal + ($round % ($maxVal * 128))}]
+		set alpha [expr {$round / 6}]
 
-		for {set try 0} {$try < $config(triesAtHashSize)} {incr try} {
-			set alpha [expr {entier(rand() * (2**31))}]
-			set beta  [expr {entier(rand() * (2**31))}]
+		foreach {testExprID testExprContents} [array get testExpr] {
+			set unFitList [list]
+			foreach nameItem $nameList {
+				set testExprVal [expr $testExprContents]
+				lappend unFitList $testExprVal
+			}
 
-			foreach {testExprID testExprContents} [array get testExpr] {
-				set idx -1
-				set seenIndexes [list]
-				set failed false
-				foreach nameItem $nameList {
-
-					set testExprVal [expr $testExprContents]
-
-					if {$minimal} {
-						incr idx
-
-						if {$testExprVal != $idx} {
-							set failed true
-							break
-						}
-					} else {
-						if {$testExprVal in $seenIndexes} {
-							set failed true
-							break
-						}
-
-						lappend seenIndexes $testExprVal
-					}
-				}
-
-				if {!$failed} {
-					break
-				}
+			set failed false
+			set fitMod [_tryFit $unFitList]
+			if {$fitMod eq ""} {
+				set failed true
 			}
 
 			if {!$failed} {
@@ -399,34 +459,134 @@ proc ::xvfs::generatePerfectHashFunctionCall {cVarName cVarLength invalidValue n
 		if {!$failed} {
 			break
 		}
+
 	}
 
-	if {$minimal} {
-		set phfCall [subst $testExprC($testExprID)]
-	} else {
-		unset -nocomplain mapArray
-		for {set idx 0} {$idx < $gamma} {incr idx} {
-			set mapArray($idx) $invalidValue
+	set phfCall [string map [list { - 0LU} ""] [subst $testExprC($testExprID)]]
+
+	# Check cache for a better answer
+	if {$config(enableCache)} {
+		catch {
+			set hashKey $nameList
+			set cacheDir [file dirname $config(cacheFile)]
+			file mkdir $cacheDir
+
+			unset -nocomplain cacheRow
+
+			sqlite3 ::xvfs::phfCache $config(cacheFile)
+			::xvfs::phfCache eval {CREATE TABLE IF NOT EXISTS cache(hashKey PRIMARY KEY, function BLOB);}
+			::xvfs::phfCache eval {SELECT function FROM cache WHERE hashKey = $hashKey LIMIT 1;} cacheRow {}
+
+			set updateCache false
+			if {[info exists cacheRow(function)]} {
+				if {[string length [string map $lengthAdjustment $cacheRow(function)]] <= [string length [string map $lengthAdjustment $phfCall]]} {
+					# Use the cached value since it is better
+					set phfCall $cacheRow(function)
+				} else {
+					set updateCache true
+				}
+			} else {
+				set updateCache true
+			}
+
+			if {$updateCache && $config(cacheValue)} {
+				# Save to cache
+				::xvfs::phfCache eval {INSERT OR REPLACE INTO cache (hashKey, function) VALUES ($hashKey, $phfCall);}
+			}
 		}
 
-		set idx -1
-		foreach nameItem $nameList {
-			incr idx
-
-			set mapArray([expr $testExpr($testExprID)]) $idx
+		catch {
+			::xvfs::phfCache close
 		}
-
-		set map "(long\[\])\{"
-		for {set idx 0} {$idx < $gamma} {incr idx} {
-			append map "$mapArray($idx), "
-		}
-		set map [string range $map 0 end-2]
-		append map "\}\[[subst $testExprC($testExprID)]\]"
-
-		set phfCall $map
 	}
+
+	set phfCall [string map [list @@CVARNAME@@ $cVarName @@CVARLENGTH@@ $cVarLength @@INVALIDVALUE@@ $invalidValue] $phfCall]
 
 	return $phfCall
+}
+
+proc ::xvfs::generateHashTable {outCVarName cVarName cVarLength invalidValue nameList args} {
+	# Manage config
+	## Default config
+	array set config {
+		prefix        ""
+		hashTableSize 10
+		validate      0
+		onValidated   "break;"
+	}
+
+	## User config
+	foreach {configKey configVal} $args {
+		if {![info exists config($configKey)]} {
+			error "Invalid option: $configKey"
+		}
+	}
+	array set config $args
+
+	if {[llength $nameList] < $config(hashTableSize)} {
+		set config(hashTableSize) [llength $nameList]
+	}
+
+	set maxLength 0
+	set index -1
+	foreach name $nameList {
+		incr index
+		set length [string length $name]
+		set hash [expr {[zlib adler32 $name 0] % $config(hashTableSize)}]
+
+		lappend indexesAtLength($length) $index
+		lappend indexesAtHash($hash) $index
+
+		if {$length > $maxLength} {
+			set maxLength $length
+		}
+	}
+
+	set maxIndexes 0
+	foreach {hash indexes} [array get indexesAtHash] {
+		set indexesCount [llength $indexes]
+
+		if {$indexesCount > $maxIndexes} {
+			set maxIndexes $indexesCount
+		}
+	}
+
+	lappend outputHeader "${config(prefix)}long ${outCVarName}_idx;"
+	lappend outputHeader "${config(prefix)}int ${outCVarName}_hash;"
+
+	for {set hash 0} {$hash < $config(hashTableSize)} {incr hash} {
+		if {[info exists indexesAtHash($hash)]} {
+			set indexes $indexesAtHash($hash)
+		} else {
+			set indexes [list]
+		}
+
+		lappend indexes $invalidValue
+		lappend outputHeader "${config(prefix)}static const long ${outCVarName}_hashTable_${hash}\[\] = \{"
+		lappend outputHeader "${config(prefix)}\t[join $indexes {, }]"
+		lappend outputHeader "${config(prefix)}\};"
+	}
+
+	lappend outputHeader "${config(prefix)}static const long * const ${outCVarName}_hashTable\[${config(hashTableSize)}\] = \{"
+
+	for {set hash 0} {$hash < $config(hashTableSize)} {incr hash} {
+		lappend outputHeader "${config(prefix)}\t${outCVarName}_hashTable_${hash},"
+	}
+
+	lappend outputHeader "${config(prefix)}\};"
+	lappend outputBody "${config(prefix)}${outCVarName}_hash = Tcl_ZlibAdler32(0, (unsigned char *) ${cVarName}, ${cVarLength}) % ${config(hashTableSize)};"
+	lappend outputBody "${config(prefix)}for (${outCVarName}_idx = 0; ${outCVarName}_idx <= ${maxIndexes}; ${outCVarName}_idx++) \{"
+	lappend outputBody "${config(prefix)}\t${outCVarName} = ${outCVarName}_hashTable\[${outCVarName}_hash\]\[${outCVarName}_idx\];"
+	lappend outputBody "${config(prefix)}\tif (${outCVarName} == $invalidValue) \{"
+	lappend outputBody "${config(prefix)}\t\tbreak;"
+	lappend outputBody "${config(prefix)}\t\}"
+	lappend outputBody ""
+	lappend outputBody "${config(prefix)}\tif (${config(validate)}) \{"
+	lappend outputBody "${config(prefix)}\t\t${config(onValidated)}"
+	lappend outputBody "${config(prefix)}\t\}"
+	lappend outputBody "${config(prefix)}\}"
+
+	return [dict create header [join $outputHeader "\n"] body [join $outputBody "\n"]]
 }
 
 package provide xvfs 1

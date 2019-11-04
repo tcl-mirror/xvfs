@@ -59,7 +59,19 @@ struct xvfs_file_data {
 
 ?>
 static long xvfs_<?= $::xvfs::fsName ?>_nameToIndex(const char *path) {
-	long pathIndex;
+<?
+		if {[llength $::xvfs::outputFiles] < 3} {
+			set hashMode perfectHashFunction
+		} else {
+			set hashMode hashTable
+		}
+
+		if {$hashMode eq "hashTable"} {
+			set hashTable [::xvfs::generateHashTable pathIndex path pathLen XVFS_NAME_LOOKUP_ERROR $::xvfs::outputFiles prefix "\t" hashTableSize 30 validate "strcmp(path, xvfs_${::xvfs::fsName}_data\[pathIndex\].name) == 0" onValidated "return(pathIndex);"]
+			set hashTableHeader [dict get $hashTable header]
+			puts $hashTableHeader
+		}
+?>	long pathIndex;
 	ssize_t pathLen;
 
 	if (path == NULL) {
@@ -68,6 +80,9 @@ static long xvfs_<?= $::xvfs::fsName ?>_nameToIndex(const char *path) {
 
 	pathLen = strlen(path);
 
+<?
+		if {$hashMode eq "perfectHashFunction"} {
+?>
 	pathIndex = <?= [::xvfs::generatePerfectHashFunctionCall "path" pathLen XVFS_NAME_LOOKUP_ERROR $::xvfs::outputFiles] ?>;
 	if (pathIndex < 0 || pathIndex >= <?= [llength $::xvfs::outputFiles] ?>) {
 		pathIndex = XVFS_NAME_LOOKUP_ERROR;
@@ -78,7 +93,11 @@ static long xvfs_<?= $::xvfs::fsName ?>_nameToIndex(const char *path) {
 			return(pathIndex);
 		}
 	}
-	
+<?
+		} else {
+			puts [dict get $hashTable body]
+		}
+?>
 	return(XVFS_NAME_LOOKUP_ERROR);
 }
 
