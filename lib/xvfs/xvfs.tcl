@@ -561,7 +561,9 @@ proc ::xvfs::generateHashTable {outCVarName cVarName cVarLength invalidValue nam
 			set indexes [list]
 		}
 
-		lappend indexes $invalidValue
+		if {[llength $indexes] != $maxIndexes} {
+			lappend indexes $invalidValue
+		}
 		lappend outputHeader "${config(prefix)}static const long ${outCVarName}_hashTable_${hash}\[\] = \{"
 		lappend outputHeader "${config(prefix)}\t[join $indexes {, }]"
 		lappend outputHeader "${config(prefix)}\};"
@@ -575,7 +577,7 @@ proc ::xvfs::generateHashTable {outCVarName cVarName cVarLength invalidValue nam
 
 	lappend outputHeader "${config(prefix)}\};"
 	lappend outputBody "${config(prefix)}${outCVarName}_hash = Tcl_ZlibAdler32(0, (unsigned char *) ${cVarName}, ${cVarLength}) % ${config(hashTableSize)};"
-	lappend outputBody "${config(prefix)}for (${outCVarName}_idx = 0; ${outCVarName}_idx <= ${maxIndexes}; ${outCVarName}_idx++) \{"
+	lappend outputBody "${config(prefix)}for (${outCVarName}_idx = 0; ${outCVarName}_idx < ${maxIndexes}; ${outCVarName}_idx++) \{"
 	lappend outputBody "${config(prefix)}\t${outCVarName} = ${outCVarName}_hashTable\[${outCVarName}_hash\]\[${outCVarName}_idx\];"
 	lappend outputBody "${config(prefix)}\tif (${outCVarName} == $invalidValue) \{"
 	lappend outputBody "${config(prefix)}\t\tbreak;"
