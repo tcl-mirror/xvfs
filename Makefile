@@ -17,25 +17,25 @@ example-standalone.o: example.c xvfs-core.h xvfs-core.c Makefile
 	$(CC) $(CPPFLAGS) -DXVFS_MODE_STANDALONE $(CFLAGS) -o example-standalone.o -c example.c
 
 example-standalone$(LIB_SUFFIX): example-standalone.o Makefile
-	${TCL_SHLIB_LD} -o example-standalone$(LIB_SUFFIX) example-standalone.o $(LIBS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o example-standalone$(LIB_SUFFIX) example-standalone.o $(LIBS)
 
 example-client.o: example.c xvfs-core.h Makefile
 	$(CC) $(CPPFLAGS) -DXVFS_MODE_CLIENT $(CFLAGS) -o example-client.o -c example.c
 
 example-client$(LIB_SUFFIX): example-client.o Makefile
-	${TCL_SHLIB_LD} -o example-client$(LIB_SUFFIX) example-client.o $(LIBS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o example-client$(LIB_SUFFIX) example-client.o $(LIBS)
 
 example-flexible.o: example.c xvfs-core.h Makefile
 	$(CC) $(CPPFLAGS) -DXVFS_MODE_FLEXIBLE $(CFLAGS) -o example-flexible.o -c example.c
 
 example-flexible$(LIB_SUFFIX): example-flexible.o Makefile
-	${TCL_SHLIB_LD} -o example-flexible$(LIB_SUFFIX) example-flexible.o $(LIBS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o example-flexible$(LIB_SUFFIX) example-flexible.o $(LIBS)
 
 xvfs.o: xvfs-core.h xvfs-core.c Makefile
 	$(CC) $(CPPFLAGS) -DXVFS_MODE_SERVER $(CFLAGS) -o xvfs.o -c xvfs-core.c
 
 xvfs$(LIB_SUFFIX): xvfs.o Makefile
-	${TCL_SHLIB_LD} -o xvfs$(LIB_SUFFIX) xvfs.o $(LIBS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o xvfs$(LIB_SUFFIX) xvfs.o $(LIBS)
 
 # xvfs-create-standalone is a standalone (i.e., no external dependencies
 # like lib/minirivet, xvfs-core.c, etc) version of "xvfs-create"
