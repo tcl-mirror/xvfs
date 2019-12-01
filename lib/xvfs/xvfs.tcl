@@ -7,11 +7,7 @@ set ::xvfs::_xvfsDir [file dirname [info script]]
 
 # Functions
 proc ::xvfs::_emitLine {line} {
-	if {[info command ::minirivet::_emitOutput] ne ""} {
-		::minirivet::_emitOutput "${line}\n"
-	} else {
-		puts $line
-	}
+	lappend ::xvfs::_emitLine $line
 }
 
 proc ::xvfs::printHelp {channel {errors ""}} {
@@ -282,6 +278,9 @@ proc ::xvfs::main {argv} {
 
 	set ::xvfs::fsName $fsName
 	set ::xvfs::rootDirectory $rootDirectory
+
+	# Return the output
+	return [join $::xvfs::_emitLine "\n"]
 }
 
 proc ::xvfs::run {args} {

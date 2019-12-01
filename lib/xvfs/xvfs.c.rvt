@@ -1,6 +1,13 @@
 <?
+	# Care must be taken when editing this file as
+	# it may be processed by either "xvfs-create"
+	# which uses a full Tcl and Rivet parser
+	# or by "xvfs-create-c" which uses a much
+	# simpler one that only knows about printable
+	# sections and ignores all Tcl sections
+
 	if {[info exists ::xvfs::xvfsCoreH]} {
-?><?= $::xvfs::xvfsCoreH ?><?
+		::minirivet::_emitOutput $::xvfs::xvfsCoreH
 	} else {
 ?>#include <xvfs-core.h><? } ?>
 #include <sys/stat.h>
@@ -55,9 +62,8 @@ struct xvfs_file_data {
 <?
 	package require xvfs
 
-	xvfs::main $::xvfs::argv
-
-?>
+	set ::xvfs::fileInfoStruct [xvfs::main $::xvfs::argv]
+?><?= $::xvfs::fileInfoStruct ?>
 static long xvfs_<?= $::xvfs::fsName ?>_nameToIndex(const char *path) {
 <?
 		if {[llength $::xvfs::outputFiles] < 3} {
