@@ -265,6 +265,11 @@ static void parse_xvfs_minirivet_hashtable_header(FILE *outfp, struct xvfs_state
 		fprintf(outfp, "\t};\n");
 	}
 
+	for (idx2 = 0; idx2 < xvfs_state->child_count; idx2++) {
+		free(xvfs_state->children[idx2]);
+	}
+	free(xvfs_state->children);
+
 	fprintf(outfp, "\tstatic const long * const pathIndex_hashTable[%i] = {\n", bucket_count);
 	for (idx1 = 0; idx1 < bucket_count; idx1++) {
 		fprintf(outfp, "\t\tpathIndex_hashTable_%i,\n", idx1);
