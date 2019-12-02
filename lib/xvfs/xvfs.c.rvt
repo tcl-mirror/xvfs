@@ -66,18 +66,10 @@ struct xvfs_file_data {
 ?><?= $::xvfs::fileInfoStruct ?>
 static long xvfs_<?= $::xvfs::fsName ?>_nameToIndex(const char *path) {
 <?
-		if {[llength $::xvfs::outputFiles] < 3} {
-			set hashMode perfectHashFunction
-		} else {
-			set hashMode hashTable
-		}
-
-		if {$hashMode eq "hashTable"} {
-			set hashTable [::xvfs::generateHashTable pathIndex path pathLen XVFS_NAME_LOOKUP_ERROR $::xvfs::outputFiles prefix "\t" hashTableSize 30 validate "strcmp(path, xvfs_${::xvfs::fsName}_data\[pathIndex\].name) == 0" onValidated "return(pathIndex);"]
-			set hashTableHeader [dict get $hashTable header]
-			puts $hashTableHeader
-		}
-?>	long pathIndex;
+	set hashTable [::xvfs::generateHashTable pathIndex path pathLen XVFS_NAME_LOOKUP_ERROR $::xvfs::outputFiles prefix "\t" hashTableSize 30 validate "strcmp(path, xvfs_${::xvfs::fsName}_data\[pathIndex\].name) == 0" onValidated "return(pathIndex);"]
+	set hashTableHeader [dict get $hashTable header]
+?><?= $hashTableHeader ?>
+	long pathIndex;
 	ssize_t pathLen;
 
 	if (path == NULL) {
@@ -86,24 +78,8 @@ static long xvfs_<?= $::xvfs::fsName ?>_nameToIndex(const char *path) {
 
 	pathLen = strlen(path);
 
-<?
-		if {$hashMode eq "perfectHashFunction"} {
-?>
-	pathIndex = <?= [::xvfs::generatePerfectHashFunctionCall "path" pathLen XVFS_NAME_LOOKUP_ERROR $::xvfs::outputFiles] ?>;
-	if (pathIndex < 0 || pathIndex >= <?= [llength $::xvfs::outputFiles] ?>) {
-		pathIndex = XVFS_NAME_LOOKUP_ERROR;
-	}
+<?= [dict get $hashTable body] ?>
 
-	if (pathIndex != XVFS_NAME_LOOKUP_ERROR) {
-		if (strcmp(path, xvfs_<?= $::xvfs::fsName ?>_data[pathIndex].name) == 0) {
-			return(pathIndex);
-		}
-	}
-<?
-		} else {
-			puts [dict get $hashTable body]
-		}
-?>
 	return(XVFS_NAME_LOOKUP_ERROR);
 }
 
@@ -224,8 +200,8 @@ static int xvfs_<?= $::xvfs::fsName ?>_getStat(const char *path, Tcl_StatBuf *st
 	
 	fileInfo = &xvfs_<?= $::xvfs::fsName ?>_data[inode];
 	
-	statBuf->st_dev   = <?= [zlib adler32 $::xvfs::fsName] ?>;
-	statBuf->st_rdev  = <?= [zlib adler32 $::xvfs::fsName] ?>;
+	statBuf->st_dev   = <?= [zlib adler32 $::xvfs::fsName 0] ?>;
+	statBuf->st_rdev  = <?= [zlib adler32 $::xvfs::fsName 0] ?>;
 	statBuf->st_ino   = inode;
 	statBuf->st_uid   = 0;
 	statBuf->st_gid   = 0;

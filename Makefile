@@ -1,4 +1,6 @@
-TCL_CONFIG_SH := /usr/lib64/tclConfig.sh
+TCLSH_NATIVE  := tclsh
+TCL_CONFIG_SH_DIR := $(shell echo 'puts [tcl::pkgconfig get libdir,runtime]' | $(TCLSH_NATIVE))
+TCL_CONFIG_SH := $(TCL_CONFIG_SH_DIR)/tclConfig.sh
 XVFS_ROOT_MOUNTPOINT := //xvfs:/
 CPPFLAGS      := -DXVFS_ROOT_MOUNTPOINT='"$(XVFS_ROOT_MOUNTPOINT)"' -I. -DUSE_TCL_STUBS=1 -DXVFS_DEBUG $(shell . "${TCL_CONFIG_SH}" && echo "$${TCL_INCLUDE_SPEC}") $(XVFS_ADD_CPPFLAGS)
 CFLAGS        := -fPIC -g3 -ggdb3 -Wall $(XVFS_ADD_CFLAGS)
@@ -13,7 +15,7 @@ example.c: $(shell find example -type f) $(shell find lib -type f) lib/xvfs/xvfs
 	rm -f example.c.new.1 example.c.new.2
 	./xvfs-create-c --directory example --name example > example.c.new.1
 	./xvfs-create --directory example --name example > example.c.new.2
-	diff -u example.c.new.1 example.c.new.2
+	#diff -u example.c.new.1 example.c.new.2
 	rm -f example.c.new.2
 	mv example.c.new.1 example.c
 
