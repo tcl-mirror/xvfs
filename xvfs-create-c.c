@@ -328,23 +328,18 @@ static void parse_xvfs_minirivet_handle_tcl_print(FILE *outfp, const struct opti
 	return;
 }
 
-static int parse_xvfs_minirivet(FILE *outfp, const char * const file, const struct options * const options) {
+static int parse_xvfs_minirivet(FILE *outfp, const char * const template, const struct options * const options) {
 	struct xvfs_state xvfs_state;
-	FILE *fp;
 	int ch, ch_buf;
+	int template_idx = 0;
 	char tcl_buffer[8192], *tcl_buffer_p;
 	enum xvfs_minirivet_mode mode;
-
-	fp = fopen(file, "r");
-	if (!fp) {
-		return(0);
-	}
 
 	xvfs_state.child_count = 0;
 	xvfs_state.child_len   = 65536;
 	xvfs_state.children    = malloc(sizeof(*xvfs_state.children) * xvfs_state.child_len);
 
-#define parse_xvfs_minirivet_getbyte(var) var = fgetc(fp); if (var == EOF) { break; }
+#define parse_xvfs_minirivet_getbyte(var) var = template[template_idx]; template_idx++; if (var == 0) { break; }
 
 	mode = XVFS_MINIRIVET_MODE_COPY;
 	tcl_buffer_p = NULL;
@@ -414,13 +409,52 @@ static int parse_xvfs_minirivet(FILE *outfp, const char * const file, const stru
 
 #undef parse_xvfs_minirivet_getbyte
 
-	fclose(fp);
-
 	return(1);
 }
 
 static int xvfs_create(FILE *outfp, const struct options * const options) {
-	return(parse_xvfs_minirivet(outfp, "lib/xvfs/xvfs.c.rvt", options));
+	const int template_len = 65536;
+	const char * const template_file = "lib/xvfs/xvfs.c.rvt";
+	FILE *fp;
+	char *template, *template_p;
+	int template_remain;
+	size_t fread_ret;
+	int retval;
+
+	fp = fopen(template_file, "r");
+	if (!fp) {
+		return(0);
+	}
+
+	template = malloc(template_len);
+	template_remain = template_len;
+	if (!template) {
+		fclose(fp);
+
+		return(0);
+	}
+
+	template_p = template;
+	while (1) {
+		fread_ret = fread(template_p, 1, template_remain, fp);
+		if (fread_ret <= 0) {
+			break;
+		}
+
+		template_p += fread_ret;
+		template_remain -= fread_ret;
+	}
+	if (template_remain > 0) {
+		*template_p = '\0';
+	}
+
+	fclose(fp);
+
+	retval = parse_xvfs_minirivet(outfp, template, options);
+
+	free(template);
+
+	return(retval);
 }
 
 /*
