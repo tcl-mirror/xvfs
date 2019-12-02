@@ -347,6 +347,7 @@ static int parse_xvfs_minirivet(FILE *outfp, const char * const file, const stru
 #define parse_xvfs_minirivet_getbyte(var) var = fgetc(fp); if (var == EOF) { break; }
 
 	mode = XVFS_MINIRIVET_MODE_COPY;
+	tcl_buffer_p = NULL;
 	while (1) {
 		parse_xvfs_minirivet_getbyte(ch);
 
