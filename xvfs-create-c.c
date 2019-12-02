@@ -240,7 +240,7 @@ static void parse_xvfs_minirivet_hashtable_header(FILE *outfp, struct xvfs_state
 		first_entry = 1;
 
 		for (idx2 = 0; idx2 < xvfs_state->child_count; idx2++) {
-			check_hash = adler32(0, xvfs_state->children[idx2], strlen(xvfs_state->children[idx2])) % bucket_count;
+			check_hash = adler32(0, (unsigned char *) xvfs_state->children[idx2], strlen(xvfs_state->children[idx2])) % bucket_count;
 			if (check_hash != idx1) {
 				continue;
 			}
@@ -412,6 +412,8 @@ static int parse_xvfs_minirivet(FILE *outfp, const char * const file, const stru
 	}
 
 #undef parse_xvfs_minirivet_getbyte
+
+	fclose(fp);
 
 	return(1);
 }
