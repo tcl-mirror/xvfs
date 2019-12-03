@@ -188,7 +188,6 @@ static void parse_xvfs_minirivet_directory(FILE *outfp, struct xvfs_state *xvfs_
 	fprintf(outfp, "\t{\n");
 	fprintf(outfp, "\t\t.name = \"%s\",\n", prefix);
 	fprintf(outfp, "\t\t.type = XVFS_FILE_TYPE_DIR,\n");
-	fprintf(outfp, "\t\t.size = %lu,\n", child_count);
 	fprintf(outfp, "\t\t.data.dirChildren  = (const char *[]) {");
 	for (child_idx = 0; child_idx < child_count; child_idx++) {
 		if (child_idx != 0) {
@@ -199,7 +198,8 @@ static void parse_xvfs_minirivet_directory(FILE *outfp, struct xvfs_state *xvfs_
 
 		free(children[child_idx]);
 	}
-	fprintf(outfp, "}\n");
+	fprintf(outfp, "},\n");
+	fprintf(outfp, "\t\t.size = %lu\n", child_count);
 
 	free(children);
 

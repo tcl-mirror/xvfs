@@ -15,7 +15,7 @@ example.c: $(shell find example -type f) $(shell find lib -type f) lib/xvfs/xvfs
 	rm -f example.c.new.1 example.c.new.2
 	./xvfs-create-c --directory example --name example > example.c.new.1
 	./xvfs-create --directory example --name example > example.c.new.2
-	#diff -u example.c.new.1 example.c.new.2
+	bash -c "diff -u <(grep -v '^ *$$' example.c.new.1) <(grep -v '^ *$$' example.c.new.2)" || :
 	rm -f example.c.new.2
 	mv example.c.new.1 example.c
 

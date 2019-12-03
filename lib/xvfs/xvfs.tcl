@@ -127,15 +127,15 @@ proc ::xvfs::processFile {fsName inputFile outputFile fileInfoDict} {
 	::xvfs::_emitLine "\t\{"
 	::xvfs::_emitLine "\t\t.name = \"[sanitizeCString $outputFile]\","
 	::xvfs::_emitLine "\t\t.type = $type,"
-	::xvfs::_emitLine "\t\t.size = $size,"
 	switch -exact -- $fileInfo(type) {
 		"file" {
-			::xvfs::_emitLine "\t\t.data.fileContents = (const unsigned char *) $data"
+			::xvfs::_emitLine "\t\t.data.fileContents = (const unsigned char *) $data,"
 		}
 		"directory" {
-			::xvfs::_emitLine "\t\t.data.dirChildren  = $children"
+			::xvfs::_emitLine "\t\t.data.dirChildren  = $children,"
 		}
 	}
+	::xvfs::_emitLine "\t\t.size = $size"
 	::xvfs::_emitLine "\t\},"
 }
 
