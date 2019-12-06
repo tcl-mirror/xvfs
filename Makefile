@@ -120,6 +120,7 @@ clean:
 	rm -f example-standalone.gcda example-standalone.gcno
 	rm -f example-client.gcda example-client.gcno
 	rm -f example-flexible.gcda example-flexible.gcno
+	rm -f xvfs-create-c.gcda xvfs-create-c.gcno
 	rm -f xvfs_random$(LIB_SUFFIX) xvfs_synthetic$(LIB_SUFFIX)
 	rm -f xvfs.gcda xvfs.gcno
 	rm -f __test__.tcl
