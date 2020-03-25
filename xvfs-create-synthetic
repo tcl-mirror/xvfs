@@ -21,6 +21,14 @@ dict set ::myOwnVFS "xvfs-create-synthetic" {
 }
 
 proc ::xvfs::callback::addOutputFiles {fsName} {
+	for {set i 0} {$i < 100000} {incr i} {
+		set filename [expr rand()]
+		::xvfs::processFile $fsName "" $filename [dict create type file fileContents [expr rand()]]
+		lappend retval $filename
+	}
+
+	dict set ::myOwnVFS "" children [list foo xvfs-create-synthetic {*}$retval]
+
 	dict for {outputName fileContentsDict} $::myOwnVFS {
 		set inputFile $outputName
 		if {[dict exists $fileContentsDict inputFile]} {
@@ -28,7 +36,9 @@ proc ::xvfs::callback::addOutputFiles {fsName} {
 		}
 		::xvfs::processFile $fsName $inputFile $outputName $fileContentsDict
 	}
-	return [dict keys $::myOwnVFS]
+	lappend retval {*}[dict keys $::myOwnVFS]
+
+	return $retval
 }
 
 ::xvfs::run --directory [pwd] --name synthetic

@@ -7,11 +7,7 @@ set ::xvfs::_xvfsDir [file dirname [info script]]
 
 # Functions
 proc ::xvfs::_emitLine {line} {
-	if {[info command ::minirivet::_emitOutput] ne ""} {
-		::minirivet::_emitOutput "${line}\n"
-	} else {
-		puts $line
-	}
+	lappend ::xvfs::_emitLine $line
 }
 
 proc ::xvfs::printHelp {channel {errors ""}} {
@@ -131,15 +127,15 @@ proc ::xvfs::processFile {fsName inputFile outputFile fileInfoDict} {
 	::xvfs::_emitLine "\t\{"
 	::xvfs::_emitLine "\t\t.name = \"[sanitizeCString $outputFile]\","
 	::xvfs::_emitLine "\t\t.type = $type,"
-	::xvfs::_emitLine "\t\t.size = $size,"
 	switch -exact -- $fileInfo(type) {
 		"file" {
-			::xvfs::_emitLine "\t\t.data.fileContents = (const unsigned char *) $data"
+			::xvfs::_emitLine "\t\t.data.fileContents = (const unsigned char *) $data,"
 		}
 		"directory" {
-			::xvfs::_emitLine "\t\t.data.dirChildren  = $children"
+			::xvfs::_emitLine "\t\t.data.dirChildren  = $children,"
 		}
 	}
+	::xvfs::_emitLine "\t\t.size = $size"
 	::xvfs::_emitLine "\t\},"
 }
 
@@ -282,6 +278,9 @@ proc ::xvfs::main {argv} {
 
 	set ::xvfs::fsName $fsName
 	set ::xvfs::rootDirectory $rootDirectory
+
+	# Return the output
+	return [join $::xvfs::_emitLine "\n"]
 }
 
 proc ::xvfs::run {args} {

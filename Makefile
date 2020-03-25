@@ -1,4 +1,6 @@
-TCL_CONFIG_SH := /usr/lib64/tclConfig.sh
+TCLSH_NATIVE  := tclsh
+TCL_CONFIG_SH_DIR := $(shell echo 'puts [tcl::pkgconfig get libdir,runtime]' | $(TCLSH_NATIVE))
+TCL_CONFIG_SH := $(TCL_CONFIG_SH_DIR)/tclConfig.sh
 XVFS_ROOT_MOUNTPOINT := //xvfs:/
 CPPFLAGS      := -DXVFS_ROOT_MOUNTPOINT='"$(XVFS_ROOT_MOUNTPOINT)"' -I. -DUSE_TCL_STUBS=1 -DXVFS_DEBUG $(shell . "${TCL_CONFIG_SH}" && echo "$${TCL_INCLUDE_SPEC}") $(XVFS_ADD_CPPFLAGS)
 CFLAGS        := -fPIC -g3 -ggdb3 -Wall $(XVFS_ADD_CFLAGS)
@@ -9,9 +11,13 @@ LIB_SUFFIX    := $(shell . "${TCL_CONFIG_SH}"; echo "$${TCL_SHLIB_SUFFIX:-.so}")
 
 all: example-standalone$(LIB_SUFFIX) example-client$(LIB_SUFFIX) example-flexible$(LIB_SUFFIX) xvfs$(LIB_SUFFIX)
 
-example.c: $(shell find example -type f) $(shell find lib -type f) lib/xvfs/xvfs.c.rvt xvfs-create Makefile
-	./xvfs-create --directory example --name example > example.c.new
-	mv example.c.new example.c
+example.c: $(shell find example -type f) $(shell find lib -type f) lib/xvfs/xvfs.c.rvt xvfs-create-c xvfs-create Makefile
+	rm -f example.c.new.1 example.c.new.2
+	./xvfs-create-c --directory example --name example > example.c.new.1
+	./xvfs-create --directory example --name example > example.c.new.2
+	bash -c "diff -u <(grep -v '^ *$$' example.c.new.1) <(grep -v '^ *$$' example.c.new.2)" || :
+	rm -f example.c.new.2
+	mv example.c.new.1 example.c
 
 example-standalone.o: example.c xvfs-core.h xvfs-core.c Makefile
 	$(CC) $(CPPFLAGS) -DXVFS_MODE_STANDALONE $(CFLAGS) -o example-standalone.o -c example.c
@@ -44,6 +50,12 @@ xvfs-create-standalone: $(shell find lib -type f) xvfs-create xvfs-core.c xvfs-c
 	./xvfs-create --dump-tcl --remove-debug > xvfs-create-standalone.new
 	chmod +x xvfs-create-standalone.new
 	mv xvfs-create-standalone.new xvfs-create-standalone
+
+xvfs-create-c: xvfs-create-c.o
+	$(CC) $(CFLAGS) $(LDFLAGS) -o xvfs-create-c xvfs-create-c.o $(LIBS)
+
+xvfs-create-c.o: xvfs-create-c.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o xvfs-create-c.o -c xvfs-create-c.c
 
 xvfs_random$(LIB_SUFFIX): $(shell find example -type f) $(shell find lib -type f) lib/xvfs/xvfs.c.rvt xvfs-create-random Makefile
 	./xvfs-create-random | $(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -DXVFS_MODE_FLEXIBLE -x c - -shared -o xvfs_random$(LIB_SUFFIX) $(LIBS)
@@ -99,7 +111,8 @@ do-profile: profile-bare profile-gperf Makefile
 
 clean:
 	rm -f xvfs-create-standalone.new xvfs-create-standalone
-	rm -f example.c example.c.new
+	rm -f xvfs-create-c.o xvfs-create-c
+	rm -f example.c example.c.new example.c.new.1 example.c.new.2
 	rm -f example-standalone$(LIB_SUFFIX) example-standalone.o
 	rm -f example-client.o example-client$(LIB_SUFFIX)
 	rm -f example-flexible.o example-flexible$(LIB_SUFFIX)
@@ -107,6 +120,7 @@ clean:
 	rm -f example-standalone.gcda example-standalone.gcno
 	rm -f example-client.gcda example-client.gcno
 	rm -f example-flexible.gcda example-flexible.gcno
+	rm -f xvfs-create-c.gcda xvfs-create-c.gcno
 	rm -f xvfs_random$(LIB_SUFFIX) xvfs_synthetic$(LIB_SUFFIX)
 	rm -f xvfs.gcda xvfs.gcno
 	rm -f __test__.tcl

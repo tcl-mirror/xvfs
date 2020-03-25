@@ -14,11 +14,15 @@ example-flexible.gcda
 example-flexible.gcno
 example-client.gcda
 example-client.gcno
+xvfs-create-c.gcda
+xvfs-create-c.gcno
 xvfs.gcda
 xvfs.gcno
 xvfs-create-standalone.new
 xvfs-create-standalone
 xvfs-test-coverage
+xvfs-create-c
+xvfs-create-c.o
 __test__.tcl
 sdks
 xvfs_random.so

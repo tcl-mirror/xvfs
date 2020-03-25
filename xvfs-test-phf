@@ -18,7 +18,7 @@ for {set idx 0} {$idx < [llength $list]} {incr idx} {
 	set subList [lrange $list 0 $idx]
 	puts "$idx ($subList):"
 	puts [time {
-		puts [::xvfs::generatePerfectHashFunctionCall pathName strlen(pathName) -1 $subList triesAtHashSize 1]
+		puts [::xvfs::generatePerfectHashFunctionCall pathName strlen(pathName) -1 $subList useCacheFirst true]
 	} 1]
 	puts ""
 }
