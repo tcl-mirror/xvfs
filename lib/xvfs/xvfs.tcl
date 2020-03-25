@@ -17,7 +17,7 @@ proc ::xvfs::printHelp {channel {errors ""}} {
 		}
 		puts $channel ""
 	}
-	puts $channel "Usage: dir2c \[--help\] \[--output <filename>\] --directory <rootDirectory> --name <fsName>"
+	puts $channel "Usage: dir2c \[--help\] \[--set-mode {flexible|standalone|client}\] \[--output <filename>\] --directory <rootDirectory> --name <fsName>"
 	flush $channel
 }
 
@@ -249,7 +249,7 @@ proc ::xvfs::main {argv} {
 			"--name" {
 				set fsName $val
 			}
-			"--output" - "--header" {
+			"--output" - "--header" - "--set-mode" {
 				# Ignored, handled as part of some other process
 			}
 			default {
@@ -308,6 +308,14 @@ proc ::xvfs::staticIncludeHeader {pathToHeaderFile} {
 	set fd [open $pathToHeaderFile]
 	::xvfs::staticIncludeHeaderData [read $fd]
 	close $fd
+}
+
+proc ::xvfs::setSpecificMode {mode} {
+	::minirivet::_emitOutput "#undef XVFS_MODE_SERVER\n"
+	::minirivet::_emitOutput "#undef XVFS_MODE_CLIENT\n"
+	::minirivet::_emitOutput "#undef XVFS_MODE_FLEXIBLE\n"
+	::minirivet::_emitOutput "#undef XVFS_MODE_STANDALONE\n"
+	::minirivet::_emitOutput "#define XVFS_MODE_[string toupper $mode] 1\n"
 }
 
 proc ::xvfs::_tryFit {list} {

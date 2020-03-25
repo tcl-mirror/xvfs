@@ -18,6 +18,13 @@ foreach {arg val} $argv {
 		"--output" {
 			set outputFile $val
 		}
+		"--set-mode" {
+			if {$mode ne "run"} {
+				error "--set-mode may not be used with --dump-tcl"
+			}
+
+			set emitSpecificMode $val
+		}
 		"--header" {
 			set headerFile $val
 		}
@@ -53,9 +60,14 @@ switch -- $mode {
 			::xvfs::setOutputChannel $fd
 		}
 
+		if {[info exists emitSpecificMode]} {
+			::xvfs::setSpecificMode $emitSpecificMode
+		}
+
 		if {[info exists headerFile]} {
 			::xvfs::staticIncludeHeader $headerFile
 		}
+
 		::xvfs::run {*}$argv
 
 		if {[info exists fd]} {
@@ -95,8 +107,15 @@ switch -- $mode {
 					"--output" {
 						set ::minirivet::_outputChannel [open $val w]
 					}
+					"--set-mode" {
+						set emitSpecificMode $val
+					}
 				}
 			}
+			if {[info exists emitSpecificMode]} {
+				::xvfs::setSpecificMode $emitSpecificMode
+			}
+
 		}
 		puts ""
 		puts [list ::minirivet::_emitOutput $core_header_data]
