@@ -1,7 +1,6 @@
 #include <xvfs-core.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <tcl.h>
@@ -33,6 +32,14 @@ struct xvfs_tclfs_server_info {
 #if defined(XVFS_MODE_SERVER) || defined(XVFS_MODE_STANDALONE) || defined(XVFS_MODE_FLEXIBLE)
 #ifndef XVFS_ROOT_MOUNTPOINT
 #  define XVFS_ROOT_MOUNTPOINT "//xvfs:/"
+#endif
+
+/*
+ * Windows lacks X_OK and W_OK
+ */
+#ifdef _MSC_BUILD
+#  define W_OK 02
+#  define X_OK 0 /* Mask it with nothing to get false */
 #endif
 
 struct xvfs_tclfs_instance_info {
