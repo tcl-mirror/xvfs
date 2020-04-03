@@ -6,7 +6,7 @@
 #include <ctype.h>
 #include <fcntl.h>
 
-struct options {
+struct xvfs_options {
 	char *name;
 	char *directory;
 };
@@ -293,7 +293,7 @@ static void parse_xvfs_minirivet_hashtable_body(FILE *outfp, struct xvfs_state *
 	return;
 }
 
-static void parse_xvfs_minirivet_handle_tcl_print(FILE *outfp, const struct options * const options, struct xvfs_state *xvfs_state, char *command) {
+static void parse_xvfs_minirivet_handle_tcl_print(FILE *outfp, const struct xvfs_options * const options, struct xvfs_state *xvfs_state, char *command) {
 	char *buffer_p, *buffer_e;
 
 	buffer_p = command;
@@ -328,7 +328,7 @@ static void parse_xvfs_minirivet_handle_tcl_print(FILE *outfp, const struct opti
 	return;
 }
 
-static int parse_xvfs_minirivet(FILE *outfp, const char * const template, const struct options * const options) {
+static int parse_xvfs_minirivet(FILE *outfp, const char * const template, const struct xvfs_options * const options) {
 	struct xvfs_state xvfs_state;
 	int ch, ch_buf;
 	int template_idx = 0;
@@ -412,7 +412,7 @@ static int parse_xvfs_minirivet(FILE *outfp, const char * const template, const 
 	return(1);
 }
 
-static int xvfs_create(FILE *outfp, const struct options * const options) {
+static int xvfs_create(FILE *outfp, const struct xvfs_options * const options) {
 	const int template_len = 65536;
 	const char * const template_file = "lib/xvfs/xvfs.c.rvt";
 	FILE *fp;
@@ -460,7 +460,7 @@ static int xvfs_create(FILE *outfp, const struct options * const options) {
 /*
  * Parse command line options
  */
-static int parse_options(int argc, char **argv, struct options *options) {
+static int parse_options(int argc, char **argv, struct xvfs_options *options) {
 	char *arg;
 	char **option;
 	int idx;
@@ -499,7 +499,7 @@ static int parse_options(int argc, char **argv, struct options *options) {
 }
 
 int main(int argc, char **argv) {
-	struct options options = {0};
+	struct xvfs_options options = {0};
 	int parse_options_ret, xvfs_create_ret;
 
 	argc--;
