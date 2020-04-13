@@ -291,6 +291,26 @@ tcltest::test xvfs-stat-basic-dir "Xvfs stat Basic Directory Test" -body {
 	unset -nocomplain fileInfo
 } -result directory
 
+tcltest::test xvfs-child-interp-basic "Xvfs Child Interp Test" -setup {
+	set interp [interp create]
+} -body {
+	llength [$interp eval [list glob -nocomplain -directory $rootDir *]]
+} -cleanup {
+	interp delete $interp
+	unset -nocomplain $interp
+} -result 3
+
+tcltest::test xvfs-thread-interp-basic "Xvfs Thread Interp Test" -setup {
+	package require Thread
+	set thread [thread::create -joinable]
+} -body {
+	llength [thread::send $thread [list glob -nocomplain -directory $rootDir *]]
+} -cleanup {
+	thread::release -wait $thread
+	thread::join $thread
+	unset -nocomplain $thread
+} -result 3
+
 # Broken in Tcl 8.6 and earlier
 tcltest::test xvfs-glob-advanced-dir-with-pattern "Xvfs Glob Match Pattern and Directory Together" -body {
 	llength [glob ${rootDir}/*]
