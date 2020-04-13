@@ -133,7 +133,12 @@ static const char *xvfs_relativePath(Tcl_Obj *path, struct xvfs_tclfs_instance_i
 		pathLen   -= 2;
 	}
 
-	XVFS_DEBUG_PRINTF("... relative path: \"%s\"", pathFinal);
+	while (pathLen >= 1 && pathFinal[0] == '/') {
+		pathFinal += 1;
+		pathLen   -= 1;
+	}
+
+	XVFS_DEBUG_PRINTF("... relative path: \"%s\" (pathLen = %i)", pathFinal, pathLen);
 
 	XVFS_DEBUG_LEAVE;
 	return(pathFinal);

@@ -239,6 +239,10 @@ tcltest::test xvfs-glob-executable "Xvfs Glob Executable Test " -body {
 	glob -nocomplain -directory $rootDir -types x *
 } -result $rootDir/lib
 
+tcltest::test xvfs-glob-trailing-slash-1 "Xvfs Glob Trailing Slash Test" -body {
+	llength [glob -nocomplain -directory $rootDir/ *]
+} -result 3
+
 tcltest::test xvfs-access-basic-read "Xvfs acccess Read Basic Test" -body {
 	file readable $testFile
 } -match boolean -result true

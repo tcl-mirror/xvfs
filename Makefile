@@ -33,7 +33,7 @@ example-client.o: example.c xvfs-core.h Makefile
 example-client$(LIB_SUFFIX): example-client.o Makefile
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o example-client$(LIB_SUFFIX) example-client.o $(LIBS) $(TCL_STUB_LIB)
 
-example-flexible.o: example.c xvfs-core.h Makefile
+example-flexible.o: example.c xvfs-core.h xvfs-core.c Makefile
 	$(CC) $(CPPFLAGS) -DXVFS_MODE_FLEXIBLE $(CFLAGS) -o example-flexible.o -c example.c
 
 example-flexible$(LIB_SUFFIX): example-flexible.o Makefile
