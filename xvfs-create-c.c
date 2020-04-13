@@ -317,6 +317,8 @@ static void parse_xvfs_minirivet_handle_tcl_print(FILE *outfp, const struct xvfs
 		fprintf(outfp, "};\n");
 	} else if (strcmp(buffer_p, "[zlib adler32 $::xvfs::fsName 0]") == 0) {
 		fprintf(outfp, "%lu", adler32(0, (unsigned char *) options->name, strlen(options->name)));
+	} else if (strcmp(buffer_p, "[llength $::xvfs::outputFiles]") == 0) {
+		fprintf(outfp, "%lu", xvfs_state->child_count);
 	} else if (strcmp(buffer_p, "$hashTableHeader") == 0) {
 		parse_xvfs_minirivet_hashtable_header(outfp, xvfs_state);
 	} else if (strcmp(buffer_p, "[dict get $hashTable body]") == 0) {

@@ -95,6 +95,12 @@ static const char **xvfs_<?= $::xvfs::fsName ?>_getChildren(const char *path, lo
 	/*
 	 * Use user-supplied inode, or look up the path
 	 */
+	if (inode != XVFS_INODE_NULL) {
+		if (inode >= <?= [llength $::xvfs::outputFiles] ?> || inode < 0) {
+			inode = XVFS_INODE_NULL;
+			path = NULL;
+		}
+	}
 	if (inode == XVFS_INODE_NULL) {
 		/*
 		 * Get the inode from the lookup function
@@ -145,6 +151,12 @@ static const unsigned char *xvfs_<?= $::xvfs::fsName ?>_getData(const char *path
 	/*
 	 * Use user-supplied inode, or look up the path
 	 */
+	if (inode != XVFS_INODE_NULL) {
+		if (inode >= <?= [llength $::xvfs::outputFiles] ?> || inode < 0) {
+			inode = XVFS_INODE_NULL;
+			path = NULL;
+		}
+	}
 	if (inode == XVFS_INODE_NULL) {
 		/*
 		 * Get the inode from the lookup function
@@ -200,6 +212,12 @@ static int xvfs_<?= $::xvfs::fsName ?>_getStat(const char *path, long inode, Tcl
 	/*
 	 * Use user-supplied inode, or look up the path
 	 */
+	if (inode != XVFS_INODE_NULL) {
+		if (inode >= <?= [llength $::xvfs::outputFiles] ?> || inode < 0) {
+			inode = XVFS_INODE_NULL;
+			path = NULL;
+		}
+	}
 	if (inode == XVFS_INODE_NULL) {
 		/*
 		 * Get the inode from the lookup function
