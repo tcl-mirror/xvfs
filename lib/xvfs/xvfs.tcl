@@ -17,7 +17,7 @@ proc ::xvfs::printHelp {channel {errors ""}} {
 		}
 		puts $channel ""
 	}
-	puts $channel "Usage: dir2c \[--help\] \[--set-mode {flexible|standalone|client}\] \[--output <filename>\] --directory <rootDirectory> --name <fsName>"
+	puts $channel "Usage: xvfs-create \[--help\] \[--static-init {true|false}\] \[--set-mode {flexible|standalone|client}\] \[--output <filename>\] --directory <rootDirectory> --name <fsName>"
 	flush $channel
 }
 
@@ -237,6 +237,7 @@ proc ::xvfs::main {argv} {
 		lappend argv ""
 	}
 
+	set staticInit false
 	foreach {arg val} $argv {
 		switch -exact -- $arg {
 			"--help" {
@@ -248,6 +249,9 @@ proc ::xvfs::main {argv} {
 			}
 			"--name" {
 				set fsName $val
+			}
+			"--static-init" {
+				set staticInit $val
 			}
 			"--output" - "--header" - "--set-mode" {
 				# Ignored, handled as part of some other process
@@ -273,7 +277,12 @@ proc ::xvfs::main {argv} {
 		exit 1
 	}
 
-	## 3. Start processing directory and producing initial output
+	## 3. Initialization
+	if {$staticInit} {
+		::xvfs::_emitLine "#define XVFS_${fsName}_INIT_STATIC 1"
+	}
+
+	## 4. Start processing directory and producing initial output
 	set ::xvfs::outputFiles [processDirectory $fsName $rootDirectory]
 
 	set ::xvfs::fsName $fsName

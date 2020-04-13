@@ -238,6 +238,9 @@ static struct Xvfs_FSInfo xvfs_<?= $::xvfs::fsName ?>_fsInfo = {
 	.getStatProc     = xvfs_<?= $::xvfs::fsName ?>_getStat
 };
 
+#ifdef XVFS_<?= $::xvfs::fsName ?>_INIT_STATIC
+static
+#endif
 int Xvfs_<?= $::xvfs::fsName ?>_Init(Tcl_Interp *interp) {
 	int register_ret;
 
@@ -259,3 +262,4 @@ int Xvfs_<?= $::xvfs::fsName ?>_Init(Tcl_Interp *interp) {
 }
 #undef XVFS_NAME_LOOKUP_ERROR
 #undef XVFS_FILE_BLOCKSIZE
+#undef XVFS_<?= $::xvfs::fsName ?>_INIT_STATIC

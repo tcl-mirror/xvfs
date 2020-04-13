@@ -9,6 +9,7 @@ set template [file join $sourceDirectory lib xvfs xvfs.c.rvt]
 package require minirivet
 
 set mode "run"
+set staticInit false
 if {[lindex $argv 0] == "--dump-tcl"} {
 	set mode "dump-tcl"
 }

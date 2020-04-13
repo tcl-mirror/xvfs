@@ -1,4 +1,6 @@
 #include <xvfs-core.h>
+#ifndef XVFS_CORE_H_1B4B28D60EBAA11D5FF85642FA7CA22C29E8E817
+#define XVFS_CORE_C_1B4B28D60EBAA11D5FF85642FA7CA22C29E8E817 1
 #include <string.h>
 #include <sys/stat.h>
 #include <errno.h>
@@ -1260,3 +1262,4 @@ int Xvfs_Register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo) {
 #undef XVFS_INTERNAL_SERVER_MAGIC
 #undef XVFS_INTERNAL_SERVER_MAGIC_LEN
 #undef XVFS_ROOT_MOUNTPOINT
+#endif /* XVFS_CORE_C_1B4B28D60EBAA11D5FF85642FA7CA22C29E8E817 */
