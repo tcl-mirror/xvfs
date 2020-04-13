@@ -5,7 +5,9 @@ XVFS_ROOT_MOUNTPOINT := //xvfs:/
 CPPFLAGS      := -DXVFS_ROOT_MOUNTPOINT='"$(XVFS_ROOT_MOUNTPOINT)"' -I. -DUSE_TCL_STUBS=1 -DXVFS_DEBUG $(shell . "${TCL_CONFIG_SH}" && echo "$${TCL_INCLUDE_SPEC}") $(XVFS_ADD_CPPFLAGS)
 CFLAGS        := -fPIC -g3 -ggdb3 -Wall $(XVFS_ADD_CFLAGS)
 LDFLAGS       := $(XVFS_ADD_LDFLAGS)
-LIBS          := $(shell . "${TCL_CONFIG_SH}" && echo "$${TCL_STUB_LIB_SPEC}")
+LIBS          := $(XVFS_ADD_LIBS)
+TCL_LIB       := $(shell . "${TCL_CONFIG_SH}" && echo "$${TCL_LIB_SPEC}")
+TCL_STUB_LIB  := $(shell . "${TCL_CONFIG_SH}" && echo "$${TCL_STUB_LIB_SPEC}")
 TCLSH         := tclsh
 LIB_SUFFIX    := $(shell . "${TCL_CONFIG_SH}"; echo "$${TCL_SHLIB_SUFFIX:-.so}")
 
@@ -23,25 +25,25 @@ example-standalone.o: example.c xvfs-core.h xvfs-core.c Makefile
 	$(CC) $(CPPFLAGS) -DXVFS_MODE_STANDALONE $(CFLAGS) -o example-standalone.o -c example.c
 
 example-standalone$(LIB_SUFFIX): example-standalone.o Makefile
-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o example-standalone$(LIB_SUFFIX) example-standalone.o $(LIBS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o example-standalone$(LIB_SUFFIX) example-standalone.o $(LIBS) $(TCL_STUB_LIB)
 
 example-client.o: example.c xvfs-core.h Makefile
 	$(CC) $(CPPFLAGS) -DXVFS_MODE_CLIENT $(CFLAGS) -o example-client.o -c example.c
 
 example-client$(LIB_SUFFIX): example-client.o Makefile
-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o example-client$(LIB_SUFFIX) example-client.o $(LIBS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o example-client$(LIB_SUFFIX) example-client.o $(LIBS) $(TCL_STUB_LIB)
 
 example-flexible.o: example.c xvfs-core.h Makefile
 	$(CC) $(CPPFLAGS) -DXVFS_MODE_FLEXIBLE $(CFLAGS) -o example-flexible.o -c example.c
 
 example-flexible$(LIB_SUFFIX): example-flexible.o Makefile
-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o example-flexible$(LIB_SUFFIX) example-flexible.o $(LIBS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o example-flexible$(LIB_SUFFIX) example-flexible.o $(LIBS) $(TCL_STUB_LIB)
 
 xvfs.o: xvfs-core.h xvfs-core.c Makefile
 	$(CC) $(CPPFLAGS) -DXVFS_MODE_SERVER $(CFLAGS) -o xvfs.o -c xvfs-core.c
 
 xvfs$(LIB_SUFFIX): xvfs.o Makefile
-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o xvfs$(LIB_SUFFIX) xvfs.o $(LIBS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o xvfs$(LIB_SUFFIX) xvfs.o $(LIBS) $(TCL_STUB_LIB)
 
 # xvfs-create-standalone is a standalone (i.e., no external dependencies
 # like lib/minirivet, xvfs-core.c, etc) version of "xvfs-create"
@@ -109,6 +111,20 @@ do-profile: profile-bare profile-gperf Makefile
 	valgrind --tool=callgrind --callgrind-out-file=callgrind.out ./profile-bare 10 2
 	callgrind_annotate callgrind.out
 
+do-valgrind: Makefile
+	$(MAKE) test XVFS_TEST_EXIT_ON_FAILURE=0 GDB='valgrind --tool=memcheck --track-origins=yes --leak-check=full'
+
+tclsh-local: tclsh-local.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -UUSE_TCL_STUBS -o tclsh-local tclsh-local.c $(LIBS) $(TCL_LIB)
+
+do-asan: Makefile
+	rm -f tclsh-local
+	$(MAKE) tclsh-local test XVFS_TEST_EXIT_ON_FAILURE=0 CC='clang -fsanitize=address,undefined,leak' XVFS_ADD_CFLAGS='-Wno-string-plus-int' TCLSH=./tclsh-local
+
+do-msan: Makefile
+	rm -f tclsh-local
+	$(MAKE) tclsh-local test XVFS_TEST_EXIT_ON_FAILURE=0 CC='clang -fsanitize=memory' XVFS_ADD_CFLAGS='-Wno-string-plus-int' TCLSH=./tclsh-local
+
 clean:
 	rm -f xvfs-create-standalone.new xvfs-create-standalone
 	rm -f xvfs-create-c.o xvfs-create-c
@@ -130,7 +146,8 @@ clean:
 	rm -rf oprofile_data
 	rm -f xvfs-test-coverage.info
 	rm -rf xvfs-test-coverage
+	rm -f tclsh-local
 
 distclean: clean
 
-.PHONY: all clean distclean test do-test do-coverage do-benchmark do-profile
+.PHONY: all clean distclean test do-test do-coverage do-benchmark do-profile do-valgrind do-asan do-msan
