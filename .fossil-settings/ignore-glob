@@ -32,3 +32,4 @@ profile-gperf
 oprofile_data
 gmon.out
 callgrind.out
+tclsh-local
