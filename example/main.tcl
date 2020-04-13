@@ -243,6 +243,14 @@ tcltest::test xvfs-glob-trailing-slash-1 "Xvfs Glob Trailing Slash Test" -body {
 	llength [glob -nocomplain -directory $rootDir/ *]
 } -result 3
 
+tcltest::test xvfs-glob-trailing-slash-2 "Xvfs Glob Trailing Slashes Test" -body {
+	llength [glob -nocomplain -directory $rootDir//// *]
+} -result 3
+
+tcltest::test xvfs-glob-middle-slash-1 "Xvfs Glob Middle Slash Test" -body {
+	llength [glob -nocomplain -directory $rootDir/lib// *]
+} -result 1 -constraints knownBug
+
 tcltest::test xvfs-access-basic-read "Xvfs acccess Read Basic Test" -body {
 	file readable $testFile
 } -match boolean -result true
