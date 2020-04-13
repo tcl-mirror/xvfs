@@ -119,7 +119,7 @@ tclsh-local: tclsh-local.c
 
 do-asan: Makefile
 	rm -f tclsh-local
-	$(MAKE) tclsh-local test XVFS_TEST_EXIT_ON_FAILURE=0 CC='clang -fsanitize=address' XVFS_ADD_CFLAGS='-Wno-string-plus-int' TCLSH=./tclsh-local
+	$(MAKE) tclsh-local test XVFS_TEST_EXIT_ON_FAILURE=0 CC='clang -fsanitize=address,undefined,leak' XVFS_ADD_CFLAGS='-Wno-string-plus-int' TCLSH=./tclsh-local
 
 do-msan: Makefile
 	rm -f tclsh-local
