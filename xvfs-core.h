@@ -5,9 +5,9 @@
 
 #define XVFS_PROTOCOL_VERSION 1
 
-typedef const char **(*xvfs_proc_getChildren_t)(const char *path, Tcl_WideInt *count);
-typedef const unsigned char *(*xvfs_proc_getData_t)(const char *path, Tcl_WideInt start, Tcl_WideInt *length);
-typedef int (*xvfs_proc_getStat_t)(const char *path, Tcl_StatBuf *statBuf);
+typedef const char **(*xvfs_proc_getChildren_t)(const char *path, long inode, Tcl_WideInt *count);
+typedef const unsigned char *(*xvfs_proc_getData_t)(const char *path, long inode, Tcl_WideInt start, Tcl_WideInt *length);
+typedef int (*xvfs_proc_getStat_t)(const char *path, long inode, Tcl_StatBuf *statBuf);
 
 /*
  * Interface for the filesystem to fill out before registering.
@@ -33,6 +33,13 @@ struct Xvfs_FSInfo {
 #define XVFS_RV_ERR_EFAULT   (-8196)
 #define XVFS_RV_ERR_EROFS    (-8197)
 #define XVFS_RV_ERR_INTERNAL (-16383)
+
+/*
+ * Functions allow user to specify either a path or a inode.
+ * If a path is specified, the inode must be specified as
+ * XVFS_INODE_NULL.
+ */
+#define XVFS_INODE_NULL (-1)
 
 #define XVFS_REGISTER_INTERFACE(name) int name(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo);
 

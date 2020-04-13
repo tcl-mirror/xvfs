@@ -82,9 +82,8 @@ static long xvfs_<?= $::xvfs::fsName ?>_nameToIndex(const char *path) {
 	return(XVFS_NAME_LOOKUP_ERROR);
 }
 
-static const char **xvfs_<?= $::xvfs::fsName ?>_getChildren(const char *path, Tcl_WideInt *count) {
+static const char **xvfs_<?= $::xvfs::fsName ?>_getChildren(const char *path, long inode, Tcl_WideInt *count) {
 	const struct xvfs_file_data *fileInfo;
-	long inode;
 
 	/*
 	 * Validate input parameters
@@ -94,12 +93,17 @@ static const char **xvfs_<?= $::xvfs::fsName ?>_getChildren(const char *path, Tc
 	}
 	
 	/*
-	 * Get the inode from the lookup function
+	 * Use user-supplied inode, or look up the path
 	 */
-	inode = xvfs_<?= $::xvfs::fsName ?>_nameToIndex(path);
-	if (inode == XVFS_NAME_LOOKUP_ERROR) {
-		*count = XVFS_RV_ERR_ENOENT;
-		return(NULL);
+	if (inode == XVFS_INODE_NULL) {
+		/*
+		 * Get the inode from the lookup function
+		 */
+		inode = xvfs_<?= $::xvfs::fsName ?>_nameToIndex(path);
+		if (inode == XVFS_NAME_LOOKUP_ERROR) {
+			*count = XVFS_RV_ERR_ENOENT;
+			return(NULL);
+		}
 	}
 	
 	fileInfo = &xvfs_<?= $::xvfs::fsName ?>_data[inode];
@@ -116,10 +120,9 @@ static const char **xvfs_<?= $::xvfs::fsName ?>_getChildren(const char *path, Tc
 	return(fileInfo->data.dirChildren);
 }
 
-static const unsigned char *xvfs_<?= $::xvfs::fsName ?>_getData(const char *path, Tcl_WideInt start, Tcl_WideInt *length) {
+static const unsigned char *xvfs_<?= $::xvfs::fsName ?>_getData(const char *path, long inode, Tcl_WideInt start, Tcl_WideInt *length) {
 	const struct xvfs_file_data *fileInfo;
 	Tcl_WideInt resultLength;
-	long inode;
 
 	/*
 	 * Validate input parameters
@@ -137,14 +140,20 @@ static const unsigned char *xvfs_<?= $::xvfs::fsName ?>_getData(const char *path
 		*length = XVFS_RV_ERR_EINVAL;
 		return(NULL);
 	}
-	
+
+
 	/*
-	 * Get the inode from the lookup function
+	 * Use user-supplied inode, or look up the path
 	 */
-	inode = xvfs_<?= $::xvfs::fsName ?>_nameToIndex(path);
-	if (inode == XVFS_NAME_LOOKUP_ERROR) {
-		*length = XVFS_RV_ERR_ENOENT;
-		return(NULL);
+	if (inode == XVFS_INODE_NULL) {
+		/*
+		 * Get the inode from the lookup function
+		 */
+		inode = xvfs_<?= $::xvfs::fsName ?>_nameToIndex(path);
+		if (inode == XVFS_NAME_LOOKUP_ERROR) {
+			*length = XVFS_RV_ERR_ENOENT;
+			return(NULL);
+		}
 	}
 	
 	fileInfo = &xvfs_<?= $::xvfs::fsName ?>_data[inode];
@@ -178,9 +187,8 @@ static const unsigned char *xvfs_<?= $::xvfs::fsName ?>_getData(const char *path
 	return(fileInfo->data.fileContents + start);
 }
 
-static int xvfs_<?= $::xvfs::fsName ?>_getStat(const char *path, Tcl_StatBuf *statBuf) {
+static int xvfs_<?= $::xvfs::fsName ?>_getStat(const char *path, long inode, Tcl_StatBuf *statBuf) {
 	const struct xvfs_file_data *fileInfo;
-	long inode;
 
 	/*
 	 * Validate input parameters
@@ -190,11 +198,16 @@ static int xvfs_<?= $::xvfs::fsName ?>_getStat(const char *path, Tcl_StatBuf *st
 	}
 	
 	/*
-	 * Get the inode from the lookup function
+	 * Use user-supplied inode, or look up the path
 	 */
-	inode = xvfs_<?= $::xvfs::fsName ?>_nameToIndex(path);
-	if (inode == XVFS_NAME_LOOKUP_ERROR) {
-		return(XVFS_RV_ERR_ENOENT);
+	if (inode == XVFS_INODE_NULL) {
+		/*
+		 * Get the inode from the lookup function
+		 */
+		inode = xvfs_<?= $::xvfs::fsName ?>_nameToIndex(path);
+		if (inode == XVFS_NAME_LOOKUP_ERROR) {
+			return(XVFS_RV_ERR_ENOENT);
+		}
 	}
 	
 	fileInfo = &xvfs_<?= $::xvfs::fsName ?>_data[inode];

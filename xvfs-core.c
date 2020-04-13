@@ -201,7 +201,7 @@ static void xvfs_setresults_error(Tcl_Interp *interp, int xvfs_error) {
 struct xvfs_tclfs_channel_id {
 	Tcl_Channel channel;
 	struct xvfs_tclfs_instance_info *fsInstanceInfo;
-	Tcl_Obj *path;
+	long inode;
 	Tcl_WideInt currentOffset;
 	Tcl_WideInt fileSize;
 	int eofMarked;
@@ -224,7 +224,7 @@ static Tcl_Channel xvfs_tclfs_openChannel(Tcl_Interp *interp, Tcl_Obj *path, str
 	XVFS_DEBUG_ENTER;
 	XVFS_DEBUG_PRINTF("Opening file \"%s\" ...", Tcl_GetString(path));
 
-	statRet = instanceInfo->fsInfo->getStatProc(Tcl_GetString(path), &fileInfo);
+	statRet = instanceInfo->fsInfo->getStatProc(Tcl_GetString(path), XVFS_INODE_NULL, &fileInfo);
 	if (statRet < 0) {
 		XVFS_DEBUG_PRINTF("... failed: %s", xvfs_strerror(statRet));
 
@@ -249,6 +249,7 @@ static Tcl_Channel xvfs_tclfs_openChannel(Tcl_Interp *interp, Tcl_Obj *path, str
 	channelInstanceData->queuedEvents = 0;
 	channelInstanceData->closed = 0;
 	channelInstanceData->channel = NULL;
+	channelInstanceData->inode = fileInfo.st_ino;
 
 	channelName = Tcl_ObjPrintf("xvfs0x%llx", (unsigned long long) channelInstanceData);
 	if (!channelName) {
@@ -263,8 +264,6 @@ static Tcl_Channel xvfs_tclfs_openChannel(Tcl_Interp *interp, Tcl_Obj *path, str
 
 	channelInstanceData->fsInstanceInfo = instanceInfo;
 	channelInstanceData->fileSize = fileInfo.st_size;
-	channelInstanceData->path = path;
-	Tcl_IncrRefCount(path);
 
 	channel = Tcl_CreateChannel(&xvfs_tclfs_channelType, Tcl_GetString(channelName), channelInstanceData, TCL_READABLE);
 	Tcl_DecrRefCount(channelName);
@@ -328,7 +327,6 @@ static int xvfs_tclfs_closeChannel(ClientData channelInstanceData_p, Tcl_Interp 
 		return(0);
 	}
 
-	Tcl_DecrRefCount(channelInstanceData->path);
 	Tcl_Free((char *) channelInstanceData);
 
 	XVFS_DEBUG_PUTS("... ok");
@@ -341,7 +339,7 @@ static int xvfs_tclfs_readChannel(ClientData channelInstanceData_p, char *buf, i
 	struct xvfs_tclfs_channel_id *channelInstanceData;
 	const unsigned char *data;
 	Tcl_WideInt offset, length;
-	char *path;
+	long inode;
 
 	channelInstanceData = (struct xvfs_tclfs_channel_id *) channelInstanceData_p;
 
@@ -353,11 +351,11 @@ static int xvfs_tclfs_readChannel(ClientData channelInstanceData_p, char *buf, i
 		return(0);
 	}
 
-	path = Tcl_GetString(channelInstanceData->path);
+	inode = channelInstanceData->inode;
 	offset = channelInstanceData->currentOffset;
 	length = bufSize;
 
-	data = channelInstanceData->fsInstanceInfo->fsInfo->getDataProc(path, offset, &length);
+	data = channelInstanceData->fsInstanceInfo->fsInfo->getDataProc(NULL, inode, offset, &length);
 
 	if (length < 0) {
 		*errorCodePtr = xvfs_errorToErrno(length);
@@ -520,7 +518,7 @@ static int xvfs_tclfs_stat(Tcl_Obj *path, Tcl_StatBuf *statBuf, struct xvfs_tclf
 
 	pathStr = xvfs_relativePath(path, instanceInfo);
 
-	retval = instanceInfo->fsInfo->getStatProc(pathStr, statBuf);
+	retval = instanceInfo->fsInfo->getStatProc(pathStr, XVFS_INODE_NULL, statBuf);
 	if (retval < 0) {
 		XVFS_DEBUG_PRINTF("... failed: %s", xvfs_strerror(retval));
 
@@ -565,7 +563,7 @@ static int xvfs_tclfs_access(Tcl_Obj *path, int mode, struct xvfs_tclfs_instance
 		return(-1);
 	}
 
-	statRetVal = instanceInfo->fsInfo->getStatProc(pathStr, &fileInfo);
+	statRetVal = instanceInfo->fsInfo->getStatProc(pathStr, XVFS_INODE_NULL, &fileInfo);
 	if (statRetVal < 0) {
 		XVFS_DEBUG_PUTS("... no (not statable)");
 
@@ -767,7 +765,7 @@ static int xvfs_tclfs_matchInDir(Tcl_Interp *interp, Tcl_Obj *resultPtr, Tcl_Obj
 	}
 
 	childrenCount = 0;
-	children = instanceInfo->fsInfo->getChildrenProc(pathStr, &childrenCount);
+	children = instanceInfo->fsInfo->getChildrenProc(pathStr, XVFS_INODE_NULL, &childrenCount);
 	if (childrenCount < 0) {
 		XVFS_DEBUG_PRINTF("... error: %s", xvfs_strerror(childrenCount));
 
