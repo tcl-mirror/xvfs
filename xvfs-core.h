@@ -5,6 +5,10 @@
 
 #define XVFS_PROTOCOL_VERSION 1
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef const char **(*xvfs_proc_getChildren_t)(const char *path, Tcl_WideInt *count);
 typedef const unsigned char *(*xvfs_proc_getData_t)(const char *path, Tcl_WideInt start, Tcl_WideInt *length);
 typedef int (*xvfs_proc_getStat_t)(const char *path, Tcl_StatBuf *statBuf);
@@ -86,4 +90,8 @@ int Xvfs_Init(Tcl_Interp *interp);
 #include <xvfs-core.c>
 #endif
 
+#endif
+
+#ifdef __cplusplus
+}
 #endif
