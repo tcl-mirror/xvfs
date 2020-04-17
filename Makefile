@@ -76,7 +76,9 @@ test: example-standalone$(LIB_SUFFIX) xvfs$(LIB_SUFFIX) example-client$(LIB_SUFF
 		'load ./example-standalone$(LIB_SUFFIX) Xvfs_example' \
 		'load -global ./xvfs$(LIB_SUFFIX); load ./example-client$(LIB_SUFFIX) Xvfs_example' \
 		'load ./xvfs$(LIB_SUFFIX); load ./example-flexible$(LIB_SUFFIX) Xvfs_example' \
-		'load ./example-flexible$(LIB_SUFFIX) Xvfs_example'; do \
+		'load ./example-flexible$(LIB_SUFFIX) Xvfs_example' \
+		'load ./xvfs$(LIB_SUFFIX); load ./example-standalone$(LIB_SUFFIX) Xvfs_example' \
+		'load ./example-standalone$(LIB_SUFFIX) Xvfs_example; load ./xvfs$(LIB_SUFFIX)'; do \
 			echo "[$${XVFS_TEST_LOAD_COMMANDS}] $(GDB) $(TCLSH) __test__.tcl $(TCL_TEST_ARGS)"; \
 			$(GDB) $(TCLSH) __test__.tcl $(TCL_TEST_ARGS) || exit 1; \
 	done

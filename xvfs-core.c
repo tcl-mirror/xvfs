@@ -27,6 +27,8 @@ static int xvfs_debug_depth = 0;
 
 struct xvfs_tclfs_server_info {
 	char magic[XVFS_INTERNAL_SERVER_MAGIC_LEN];
+	int protocolVersion;
+	const char *rootMountpoint;
 	int (*registerProc)(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo);
 };
 #endif /* XVFS_MODE_FLEXIBLE || XVFS_MODE_SERVER */
@@ -982,8 +984,25 @@ static int xvfs_flexible_register(Tcl_Interp *interp, struct Xvfs_FSInfo *fsInfo
 	 * client data smaller than XVFS_INTERNAL_SERVER_MAGIC_LEN ?
 	 */
 	if (memcmp(fsHandlerData->magic, XVFS_INTERNAL_SERVER_MAGIC, sizeof(fsHandlerData->magic)) == 0) {
-		XVFS_DEBUG_PUTS("Found a server handler");
-		xvfs_register = fsHandlerData->registerProc;
+		/*
+		 * Refuse to talk to the in-core implementation if it is a lower
+		 * version.
+		 */
+		XVFS_DEBUG_PUTS("Found a server handler, checking for compatible version");
+		if (fsHandlerData->protocolVersion >= XVFS_PROTOCOL_VERSION) {
+			XVFS_DEBUG_PUTS("Found a server handler with a compatible version, checking for compatible root");
+			if (strcmp(XVFS_ROOT_MOUNTPOINT, fsHandlerData->rootMountpoint) == 0) {
+				XVFS_DEBUG_PUTS("Found a server handler with a compatible version and checking for compatible root");
+
+				xvfs_register = fsHandlerData->registerProc;
+			}
+		}
+	}
+
+	if (xvfs_register == &xvfs_standalone_register) {
+		XVFS_DEBUG_PUTS("Using xvfs_standalone_register");
+	} else {
+		XVFS_DEBUG_PUTS("Using Xvfs_Register from Xvfs Server Core");
 	}
 
 	XVFS_DEBUG_LEAVE;
@@ -997,7 +1016,7 @@ static Tcl_Filesystem xvfs_tclfs_dispatch_fs;
 static Tcl_HashTable xvfs_tclfs_dispatch_map;
 static struct xvfs_tclfs_server_info xvfs_tclfs_dispatch_fsdata;
 
-static int xvfs_tclfs_dispatch_pathInFS(Tcl_Obj *path, ClientData *dataPtr) {
+static int xvfs_tclfs_dispatch_pathInXVFS(Tcl_Obj *path) {
 	const char *pathStr, *rootStr;
 	int pathLen, rootLen;
 
@@ -1047,7 +1066,7 @@ static struct xvfs_tclfs_instance_info *xvfs_tclfs_dispatch_pathToInfo(Tcl_Obj *
 
 	path = xvfs_absolutePath(path);
 
-	if (xvfs_tclfs_dispatch_pathInFS(path, NULL) != TCL_OK) {
+	if (xvfs_tclfs_dispatch_pathInXVFS(path) != TCL_OK) {
 		Tcl_DecrRefCount(path);
 
 		XVFS_DEBUG_LEAVE;
@@ -1094,6 +1113,17 @@ static struct xvfs_tclfs_instance_info *xvfs_tclfs_dispatch_pathToInfo(Tcl_Obj *
 	 */
 	xvfs_tclfs_pathInFilesystem(NULL, NULL, NULL);
 	return(NULL);
+}
+
+static int xvfs_tclfs_dispatch_pathInFS(Tcl_Obj *path, ClientData *dataPtr) {
+	struct xvfs_tclfs_instance_info *instanceInfo;
+
+	instanceInfo = xvfs_tclfs_dispatch_pathToInfo(path);
+	if (!instanceInfo) {
+		return(-1);
+	}
+
+	return(TCL_OK);
 }
 
 static int xvfs_tclfs_dispatch_stat(Tcl_Obj *path, Tcl_StatBuf *statBuf) {
@@ -1196,7 +1226,9 @@ int Xvfs_Init(Tcl_Interp *interp) {
 	xvfs_tclfs_dispatch_fs.chdirProc                  = NULL;
 
 	memcpy(xvfs_tclfs_dispatch_fsdata.magic, XVFS_INTERNAL_SERVER_MAGIC, XVFS_INTERNAL_SERVER_MAGIC_LEN);
-	xvfs_tclfs_dispatch_fsdata.registerProc = Xvfs_Register;
+	xvfs_tclfs_dispatch_fsdata.registerProc    = Xvfs_Register;
+	xvfs_tclfs_dispatch_fsdata.protocolVersion = XVFS_PROTOCOL_VERSION;
+	xvfs_tclfs_dispatch_fsdata.rootMountpoint  = XVFS_ROOT_MOUNTPOINT;
 
 	tclRet = Tcl_FSRegister((ClientData) &xvfs_tclfs_dispatch_fsdata, &xvfs_tclfs_dispatch_fs);
 	if (tclRet != TCL_OK) {
